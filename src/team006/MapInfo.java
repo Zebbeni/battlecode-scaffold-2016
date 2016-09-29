@@ -30,6 +30,7 @@ public class MapInfo {
         spawnSchedule = rc.getZombieSpawnSchedule().getRounds();
         selfType = rc.getType();
         selfId = rc.getID();
+        selfTeam = rc.getTeam();
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
     }
@@ -123,7 +124,10 @@ public class MapInfo {
 
     public void updateZombieDens(MapLocation sigLoc, int[] message) {
         denLocations.put(SignalManager.decodeLocation(sigLoc, message[1]),true);
+    }
 
+    public void updateZombieDens(MapLocation denLoc, boolean isHere) {
+        denLocations.put(denLoc, isHere);
     }
 
     // updates the map if anything special needs to happen on task complete

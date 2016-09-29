@@ -33,8 +33,6 @@ public class Decision {
             return 0;
         } else if (mapInfo.timeTillSpawn < 50) {
             return 2; // build guards if zombies to spawn soon
-        } else if (rand.nextInt(16) == 15) {
-            return 4;
         }
         return 1;
     }

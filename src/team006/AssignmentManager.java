@@ -14,7 +14,7 @@ public class AssignmentManager {
     public static int BOT_MOVE_TO_LOC = 4;
     public static int BOT_ATTACK_MOVE_TO_LOC = 5;
     public static int BOT_TIMID_MOVE_TO_LOC = 6;
-    public static int BOT_RETREAT_TO_NEAREST_ARCHON = 7;
+    public static int BOT_RUN_AWAY = 7;
     public static int BOT_PATROL = 8;
     public static int BOT_TURRET_DEFEND = 9;
     public static int BOT_SCOUT = 10;
@@ -28,8 +28,9 @@ public class AssignmentManager {
 
         if ( rc.getType() == RobotType.ARCHON ) {
             if ( Decision.doRunAway(rc, mapInfo)) {
-                assignmentType = BOT_RETREAT_TO_NEAREST_ARCHON;
-                targetLocation = mapInfo.getNearestFriendlyArchonLoc(rc);
+                assignmentType = BOT_RUN_AWAY;
+//                targetLocation = mapInfo.getNearestFriendlyArchonLoc(rc);
+                targetLocation = null; // this actually works better than leading the enemy to all archons at once
             } else if ( Decision.doCollectParts(rc) ) { // TODO: Add a condition to trigger this archon to collect parts
                 assignmentType = ARCH_COLLECT_PARTS;
                 // this will eventually be smarter. Basically, we tell the archon to collect parts

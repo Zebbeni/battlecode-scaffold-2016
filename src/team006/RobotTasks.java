@@ -25,7 +25,7 @@ public class RobotTasks {
                 return attackMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_TIMID_MOVE_TO_LOC ){
                 return timidMoveToLocation(rc, mapInfo, assignment.targetLocation);
-            } else if ( assignment.assignmentType == AssignmentManager.BOT_RETREAT_TO_NEAREST_ARCHON ){
+            } else if ( assignment.assignmentType == AssignmentManager.BOT_RUN_AWAY ){
                 return retreatToLocation(rc, mapInfo, assignment.targetLocation);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_PATROL ){
                 return attackMoveToLocation(rc, mapInfo, assignment.targetLocation);
@@ -57,7 +57,7 @@ public class RobotTasks {
                 rc.move(dirToTarget);
             } else if (rc.senseRubble(mapInfo.selfLoc.add(dirToTarget)) >= GameConstants.RUBBLE_OBSTRUCTION_THRESH
                     && (rc.senseRubble(mapInfo.selfLoc.add(dirToTarget)) <= GameConstants.RUBBLE_OBSTRUCTION_THRESH * 5
-                        || mapInfo.selfId % 4 == 0)) { // every 4th bot just plows through whatever rubble is ahead
+                        || mapInfo.selfId % 10 == 0)) { // every 4th bot just plows through whatever rubble is ahead
                 // If there's a reasonable amount of rubble in this direction, clear it
                 rc.setIndicatorString(1, "clearing rubble");
                 rc.clearRubble(dirToTarget);
@@ -167,6 +167,9 @@ public class RobotTasks {
                         if (info.type == RobotType.ARCHON || info.type == RobotType.SCOUT || info.type == RobotType.ZOMBIEDEN) {
                             // only consider non-threat targets if they are near the actual target location
                             // ie. don't stop to shoot dens if on the way to help another fighter
+                            if (info.type == RobotType.ZOMBIEDEN){
+                                mapInfo.updateZombieDens(info.location,true);
+                            }
                             if (info.location.distanceSquaredTo(targetLocation) < 25) {
                                 thisEffort = thisDist * info.health;
                                 if (thisEffort < minNonThreatEffort) {
@@ -271,7 +274,6 @@ public class RobotTasks {
             if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) > radius * radius) {
                 return timidMoveToLocation(rc, mapInfo, targetLocation);
             }
-
 
             MapLocation targetPartLocation = null;
             MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
