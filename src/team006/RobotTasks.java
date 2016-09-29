@@ -1,12 +1,6 @@
 package team006;
 
 import battlecode.common.*;
-import scala.reflect.internal.*;
-import scala.reflect.internal.Constants;
-import scala.xml.PrettyPrinter;
-
-import java.awt.*;
-import java.util.ArrayList;
 
 /**
  * Created by andrewalbers on 9/14/16.
@@ -39,6 +33,8 @@ public class RobotTasks {
                 return turretDefend(rc, mapInfo);
             } else if (assignment.assignmentType == AssignmentManager.BOT_SCOUT) {
                 return scoutLocation(rc, mapInfo, assignment.targetLocation);
+            } else if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
+                return attackZombieDen(rc, mapInfo, assignment.targetLocation);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -98,49 +94,15 @@ public class RobotTasks {
         return TASK_IN_PROGRESS;
     }
 
-//    public static int patrol(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
-//        try {
-//            rc.setIndicatorString(0, "patrolling");
-//
-//            // move until near designated target area
-//            if (mapInfo.selfLoc.equals(targetLocation) == false) {
-//                return attackMoveToLocation(rc, mapInfo, targetLocation);
-//            }
-//
-//            MapLocation targetEnemyLocation = null;
-//            ArrayList<MapLocation> enemyLocations = mapInfo.enemyLocations;
-//            int minEnemyDist = 9999999;
-//
-//            for (MapLocation enemyLocation : enemyLocations ) {
-//                int enemyDist = mapInfo.selfLoc.distanceSquaredTo(enemyLocation);
-//                if (enemyDist < minEnemyDist) {
-//                    minEnemyDist = enemyDist;
-//                    targetEnemyLocation = enemyLocation;
-//                }
-//            }
-//            if (targetEnemyLocation == null) {
-//                // if no enemy locations found, task complete
-//                return TASK_COMPLETE;
-//            } else {
-//                return attackMoveToLocation(rc, mapInfo, targetEnemyLocation);
-//            }
-//        } catch (Exception e) {
-//            System.out.println(e.getMessage());
-//            e.printStackTrace();
-//        }
-//        return attackMoveToLocation(rc, mapInfo, targetLocation);
-//    }
-
     public static int scoutLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            if (mapInfo.selfLoc.equals(targetLocation)){
-                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 10) {
-                    RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
-                    SignalManager.scoutEnemies(rc, mapInfo, hostileBots);
-                    return TASK_SIGNALED;
-                } else {
-                    return TASK_COMPLETE;
-                }
+            rc.setIndicatorString(0, "scouting");
+            if (mapInfo.roundNum - mapInfo.selfLastSignaled > 10) {
+                RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
+                SignalManager.scoutEnemies(rc, mapInfo, hostileBots);
+                return TASK_SIGNALED;
+            } else if (mapInfo.selfLoc.equals(targetLocation)) {
+                return TASK_COMPLETE;
             } else {
                 return moveToLocation(rc, mapInfo, targetLocation);
             }
@@ -154,6 +116,7 @@ public class RobotTasks {
     // just use attackMoveToLocation, since
     public static int turretDefend(RobotController rc, MapInfo mapInfo){
         try {
+            rc.setIndicatorString(0, "defending cause I'm a turret");
             return attackMoveToLocation(rc, mapInfo, mapInfo.selfLoc);
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -162,71 +125,71 @@ public class RobotTasks {
         return TASK_ABANDONED;
     }
 
+    // Move toward den attacking any enemies along way.
+    public static int attackZombieDen(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
+        try {
+            rc.setIndicatorString(0, "attacking Zombie Den");
+            if (rc.canSenseLocation(targetLocation)) {
+                if (rc.senseRobotAtLocation(targetLocation) == null) {
+                    return TASK_COMPLETE;
+                }
+            }
+            return attackMoveToLocation(rc, mapInfo, targetLocation);
+        } catch (GameActionException gae) {
+            System.out.println(gae.getMessage());
+            gae.printStackTrace();
+        }
+        return TASK_ABANDONED;
+    }
+
     // Move toward a location attacking any enemies along the way
     public static int attackMoveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            rc.setIndicatorString(0, "attack moving to location");
             RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
-            int minZombieDist = 99999;
-            int minOpponentDist = 99999;
-            int minNonThreatDist = 99999;
+            double minThreatEffort = 99999;
+            double minNonThreatEffort = 99999;
             int minRange = mapInfo.selfType == RobotType.TURRET ? 5 : 0;
             MapLocation attackLoc = null;
-            MapLocation zombieLoc = null;
-            MapLocation opponentLoc = null;
+            MapLocation threatLoc = null;
             MapLocation nonThreatLoc = null; // location of nearest enemy archon or den
-            double minEnemyHealth = 0.3;
-            boolean isTargetingLowHealth = false;
 
-            if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50) {
+            if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50 && hostileBots.length > 0) {
                 SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
                 rc.setIndicatorString(2, "selfLastSignaled: " + mapInfo.selfLastSignaled);
                 return TASK_SIGNALED;
             } else {
+                double thisEffort;
                 // find and attack closest enemy bot
                 for (RobotInfo info : hostileBots) {
-                    // Find closest enemy location TODO: find optimal enemy location
+                    // Find optimal attack location
                     int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
-                    if (info.team.equals(Team.ZOMBIE)) {
-                        if (info.type == RobotType.ZOMBIEDEN && thisDist < minNonThreatDist && thisDist > minRange) {
-                            minNonThreatDist = thisDist;
-                            nonThreatLoc = info.location;
-                        } else if (info.health / info.maxHealth < minEnemyHealth) {
-                            minEnemyHealth = info.health / info.maxHealth;
-                            zombieLoc = info.location;
-                            isTargetingLowHealth = true;
-                        } else if (!isTargetingLowHealth && thisDist < minZombieDist && thisDist > minRange) {
-                            minZombieDist = thisDist;
-                            zombieLoc = info.location;
-                        }
-                    } else {
-                        if (info.type == RobotType.ARCHON && thisDist < minNonThreatDist && thisDist > minRange) {
-                            minNonThreatDist = thisDist;
-                            nonThreatLoc = info.location;
-                        } else if (info.health / info.maxHealth < minEnemyHealth) {
-                            minEnemyHealth = info.health / info.maxHealth;
-                            opponentLoc = info.location;
-                            isTargetingLowHealth = true;
-                        } else if (!isTargetingLowHealth && thisDist < minOpponentDist && thisDist > minRange) {
-                            minOpponentDist = thisDist;
-                            opponentLoc = info.location;
+                    if (thisDist > minRange) {
+                        if (info.type == RobotType.ARCHON || info.type == RobotType.SCOUT || info.type == RobotType.ZOMBIEDEN) {
+                            // only consider non-threat targets if they are near the actual target location
+                            // ie. don't stop to shoot dens if on the way to help another fighter
+                            if (info.location.distanceSquaredTo(targetLocation) < 25) {
+                                thisEffort = thisDist * info.health;
+                                if (thisEffort < minNonThreatEffort) {
+                                    minNonThreatEffort = thisEffort;
+                                    nonThreatLoc = info.location;
+                                }
+                            }
+                        } else {
+                            thisEffort = thisDist * info.health / info.attackPower;
+                            if (thisEffort < minThreatEffort) {
+                                minThreatEffort = thisEffort;
+                                threatLoc = info.location;
+                            }
                         }
                     }
                 }
 
-                if (zombieLoc != null) {
-                    attackLoc = zombieLoc;
-                }
-                if (opponentLoc != null) {
-                    if (attackLoc == null || mapInfo.selfType != RobotType.GUARD) {
-                        attackLoc = opponentLoc;
-                    }
-                }
-                if (attackLoc == null && nonThreatLoc != null) {
-                    attackLoc = nonThreatLoc;
-                }
+                attackLoc = threatLoc != null ? threatLoc : nonThreatLoc;
 
                 if (attackLoc != null) {
+                    if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.SCOUT){
+
+                    }
                     if (mapInfo.selfWeaponDelay >= 1) {
                         rc.setIndicatorString(1, "recharging");
                         if (mapInfo.selfType == RobotType.TURRET) {
@@ -272,11 +235,13 @@ public class RobotTasks {
             rc.setIndicatorString(1, "timid moving to location");
             RobotInfo[] hostileRobots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
             for (RobotInfo info : hostileRobots) {
-                if (mapInfo.selfType == RobotType.ARCHON){
+                if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 50){
                     // request assistance
                     SignalManager.requestHelp(rc, mapInfo, info.location);
+                    return TASK_SIGNALED;
+                } else {
+                    return TASK_ABANDONED;
                 }
-                return TASK_ABANDONED;
             }
             if (mapInfo.selfType == RobotType.ARCHON) {
                 RobotInfo[] neutralRobots = rc.senseNearbyRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq, Team.NEUTRAL);

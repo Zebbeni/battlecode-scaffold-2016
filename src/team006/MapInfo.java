@@ -10,7 +10,7 @@ import java.util.*;
 
 public class MapInfo {
     public Map<Integer, MapLocation> archonLocations = new HashMap<>();
-    public ArrayList<MapLocation> enemyLocations = new ArrayList<>();
+    public Map<MapLocation, Boolean> denLocations = new HashMap<>();
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
@@ -71,8 +71,8 @@ public class MapInfo {
                         minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
                     } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
                         newArchonPositions.put(signal.getID(),signal.getLocation());
-                    } else if (message[0] == SignalManager.SIG_SCOUT) {
-                        scoutSignals.put(signal.getRobotID(),roundNum);
+                    } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
+                        updateZombieDens(thisLocation, message);
                     }
                 } else {
                     // set urgent signal to this if it's the closest
@@ -90,7 +90,6 @@ public class MapInfo {
                 }
             }
         }
-
 
         if (newArchonPositions.size() > 0) {
             archonLocations = newArchonPositions;
@@ -119,6 +118,18 @@ public class MapInfo {
             return distToSignal;
         } else {
             return minDist;
+        }
+    }
+
+    public void updateZombieDens(MapLocation sigLoc, int[] message) {
+        denLocations.put(SignalManager.decodeLocation(sigLoc, message[1]),true);
+
+    }
+
+    // updates the map if anything special needs to happen on task complete
+    public void handleTaskComplete(Assignment assignment) {
+        if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
+            denLocations.put(assignment.targetLocation, false);
         }
     }
 }

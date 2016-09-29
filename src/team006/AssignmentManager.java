@@ -18,6 +18,7 @@ public class AssignmentManager {
     public static int BOT_PATROL = 8;
     public static int BOT_TURRET_DEFEND = 9;
     public static int BOT_SCOUT = 10;
+    public static int BOT_KILL_DEN = 11;
 
     public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo) {
 
@@ -40,17 +41,15 @@ public class AssignmentManager {
                 assignmentType = ARCH_BUILD_ROBOTS;
                 targetInt = Decision.botToBuild(rc, mapInfo);
             }
-        } else if ( rc.getType() == RobotType.SOLDIER ){
+        } else if ( mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD){
 
             assignmentType = BOT_PATROL;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(21) - 10, rcLoc.y + rand.nextInt(21) - 10);
-
-        } else if ( rc.getType() == RobotType.GUARD ){
-
-            assignmentType = BOT_PATROL;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(21) - 10, rcLoc.y + rand.nextInt(21) - 10);
+            targetLocation = getNearestZombieDen(mapInfo);
+            if (targetLocation == null) {
+                targetLocation = new MapLocation(mapInfo.selfLoc.x + rand.nextInt(21) - 10, mapInfo.selfLoc.y + rand.nextInt(21) - 10);
+            } else {
+                assignmentType = BOT_KILL_DEN;
+            }
 
         } else if ( rc.getType() == RobotType.SCOUT ){
 
@@ -81,7 +80,7 @@ public class AssignmentManager {
         int targetInt = 0;
         MapLocation targetLocation;
 
-        if (message == null || message[0] == SignalManager.SIG_ASSIST) {
+        if (assignment.assignmentType != AssignmentManager.BOT_KILL_DEN && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
             if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD) {
                 assignmentType = BOT_ATTACK_MOVE_TO_LOC;
                 targetLocation = SignalManager.decodeLocation(signal.getLocation(),message[1]);
@@ -92,5 +91,21 @@ public class AssignmentManager {
         } else {
             return assignment;
         }
+    }
+
+    public static MapLocation getNearestZombieDen(MapInfo mapInfo) {
+        MapLocation targetLocation = null;
+        MapLocation rcLoc = mapInfo.selfLoc;
+        int minDist = 625; // don't go further than 25 units to kill a zombie den
+        for (MapLocation denLoc : mapInfo.denLocations.keySet()) {
+            if (mapInfo.denLocations.get(denLoc) == true) { // TODO: make sure we remove these when found to no longer exist
+                int thisDist = rcLoc.distanceSquaredTo(denLoc);
+                if (thisDist < minDist) {
+                    targetLocation = denLoc;
+                    minDist = thisDist;
+                }
+            }
+        }
+        return targetLocation;
     }
 }

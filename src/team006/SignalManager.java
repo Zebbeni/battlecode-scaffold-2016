@@ -8,7 +8,7 @@ import battlecode.common.*;
 public class SignalManager {
     public static int SIG_ASSIST = 1;
     public static int SIG_UPDATE_ARCHON_LOC = 2;
-    public static int SIG_SCOUT = 3;
+    public static int SIG_SCOUT_DENS = 3;
 
     public static void requestHelp(RobotController rc, MapInfo mapInfo, MapLocation location) {
         try {
@@ -34,7 +34,14 @@ public class SignalManager {
 
     public static void scoutEnemies(RobotController rc, MapInfo mapInfo, RobotInfo[] enemies) {
         try {
-            rc.broadcastMessageSignal(SIG_SCOUT, enemies.length, 1000);
+            boolean denSignalSent = false;
+            for (RobotInfo info : enemies) {
+                if (info.type == RobotType.ZOMBIEDEN && denSignalSent == false) {
+                    rc.broadcastMessageSignal(SIG_SCOUT_DENS, encodeLocation(mapInfo.selfLoc, mapInfo.selfLoc), 1000);
+                    denSignalSent = true;
+                    rc.setIndicatorString(2, "Sent Zombie Den message");
+                }
+            }
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());
             gae.printStackTrace();
