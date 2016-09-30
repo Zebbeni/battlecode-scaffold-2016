@@ -136,4 +136,11 @@ public class MapInfo {
             denLocations.put(assignment.targetLocation, false);
         }
     }
+
+    // return the actual shortest MOVE distance between two locations
+    public int moveDist(MapLocation fromLoc, MapLocation toLoc){
+        int xDist = Math.abs(toLoc.x - fromLoc.x);
+        int yDist = Math.abs(toLoc.y - fromLoc.y);
+        return Math.max(xDist, yDist);
+    }
 }
