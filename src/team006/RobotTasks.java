@@ -170,12 +170,10 @@ public class RobotTasks {
                             if (info.type == RobotType.ZOMBIEDEN){
                                 mapInfo.updateZombieDens(info.location,true);
                             }
-                            if (info.location.distanceSquaredTo(targetLocation) < 25) {
-                                thisEffort = thisDist * info.health;
-                                if (thisEffort < minNonThreatEffort) {
-                                    minNonThreatEffort = thisEffort;
-                                    nonThreatLoc = info.location;
-                                }
+                            thisEffort = thisDist * info.health;
+                            if (thisEffort < minNonThreatEffort) {
+                                minNonThreatEffort = thisEffort;
+                                nonThreatLoc = info.location;
                             }
                         } else {
                             thisEffort = thisDist * info.health / info.attackPower;
