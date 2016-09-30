@@ -11,6 +11,7 @@ import java.util.*;
 public class MapInfo {
     public Map<Integer, MapLocation> archonLocations = new HashMap<>();
     public Map<MapLocation, Boolean> denLocations = new HashMap<>();
+    public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
@@ -142,5 +143,13 @@ public class MapInfo {
         int xDist = Math.abs(toLoc.x - fromLoc.x);
         int yDist = Math.abs(toLoc.y - fromLoc.y);
         return Math.max(xDist, yDist);
+    }
+
+    public void incrementHasBeenOnCurrent() {
+       if (hasBeenLocations.containsKey(selfLoc)) {
+           hasBeenLocations.put(hasBeenLocations.get(selfLoc) + 1);
+       } else {
+           hasBeenLocations.put(selfLoc, 1);
+       }
     }
 }
