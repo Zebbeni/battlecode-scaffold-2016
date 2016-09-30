@@ -46,42 +46,54 @@ public class RobotTasks {
     // Move toward a location
     public static int moveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            Direction dirToTarget = mapInfo.selfLoc.directionTo(targetLocation);
-
             if (rc.getLocation().equals(targetLocation)) {
                 // If goal reached
                 rc.setIndicatorString(1, "task complete");
                 return TASK_COMPLETE;
-            } else if (rc.canMove(dirToTarget)) {
-                rc.setIndicatorString(1, "moving to location");
-                rc.move(dirToTarget);
-            } else if (rc.senseRubble(mapInfo.selfLoc.add(dirToTarget)) >= GameConstants.RUBBLE_OBSTRUCTION_THRESH
-                    && (rc.senseRubble(mapInfo.selfLoc.add(dirToTarget)) <= GameConstants.RUBBLE_OBSTRUCTION_THRESH * 5
-                        || mapInfo.selfId % 10 == 0)) { // every 4th bot just plows through whatever rubble is ahead
-                // If there's a reasonable amount of rubble in this direction, clear it
-                rc.setIndicatorString(1, "clearing rubble");
-                rc.clearRubble(dirToTarget);
-            } else if (rc.senseRobotAtLocation(mapInfo.selfLoc.add(dirToTarget)) == null) {
-                // If cannot move forward but nothing blocking path
-                rc.setIndicatorString(1, "abandoning task, nothing at target");
-                return TASK_ABANDONED;
-            } else if (targetLocation.equals(mapInfo.selfLoc.add(dirToTarget))) {
-                // if another robot sitting on top of target Location, task is complete
-                rc.setIndicatorString(1, "moved close enough, objective complete");
-                return TASK_COMPLETE;
             } else {
-                if (rc.canMove(dirToTarget.rotateRight())) {
-                    rc.setIndicatorString(1, "moving 45 right");
-                    rc.move(dirToTarget.rotateRight());
-                } else if (rc.canMove(dirToTarget.rotateRight().rotateRight())) {
-                    rc.setIndicatorString(1, "moving 90 right");
-                    rc.move(dirToTarget.rotateRight().rotateRight());
-                } else if (rc.canMove(dirToTarget.rotateLeft())) {
-                    rc.setIndicatorString(1, "moving 45 right");
-                    rc.move(dirToTarget.rotateLeft());
-                } else if (rc.canMove(dirToTarget.rotateLeft().rotateLeft())) {
-                    rc.setIndicatorString(1, "moving 90 left");
-                    rc.move(dirToTarget.rotateLeft().rotateLeft());
+
+                // evaluate best spot to go
+                int minScore = 9999999;
+                Direction evalDirection;
+                MapLocation evalLocation;
+
+                Direction dirToMove = mapInfo.selfLoc.directionTo(targetLocation);
+                MapLocation locToMove = null;
+                double rubbleToClear = 0;
+
+                if (mapInfo.selfType != RobotType.SCOUT) {
+                    for (int i = 0; i < Constants.DIRECTIONS.length; i++) {
+                        int thisScore = 0;
+                        double rubble = 0.0;
+                        evalDirection = Constants.DIRECTIONS[i];
+                        evalLocation = mapInfo.selfLoc.add(evalDirection);
+                        if (rc.onTheMap(evalLocation)) {
+                            rubble = rc.senseRubble(evalLocation);
+                            if (rc.canMove(evalDirection) || rubble >= 100) {
+                                thisScore += MapInfo.moveDist(evalLocation, targetLocation);
+                                if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
+                                    thisScore += mapInfo.hasBeenLocations.get(evalLocation);
+                                }
+                                thisScore += rubble / 100;
+                                if (thisScore < minScore) {
+                                    minScore = thisScore;
+                                    dirToMove = evalDirection;
+                                    locToMove = evalLocation;
+                                    rubbleToClear = rubble;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (locToMove != null) {
+                    if (rubbleToClear < 50) {
+                        rc.setIndicatorString(1, "moving to location");
+                        rc.move(dirToMove);
+                    } else {
+                        rc.setIndicatorString(1, "clearing rubble");
+                        rc.clearRubble(dirToMove);
+                    }
                 } else {
                     rc.setIndicatorString(1, "abandoning task, cannot move");
                     return TASK_ABANDONED;

@@ -18,6 +18,7 @@ public class MapInfo {
     public RobotType selfType = null;
     public Team selfTeam = null;
     public int selfId;
+    public boolean selfCanClearRubble;
     public int selfSenseRadiusSq = 0;
     public int selfAttackRadiusSq = 0;
     public double selfWeaponDelay = 0;
@@ -139,15 +140,19 @@ public class MapInfo {
     }
 
     // return the actual shortest MOVE distance between two locations
-    public int moveDist(MapLocation fromLoc, MapLocation toLoc){
+    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
         int xDist = Math.abs(toLoc.x - fromLoc.x);
         int yDist = Math.abs(toLoc.y - fromLoc.y);
         return Math.max(xDist, yDist);
     }
 
+    public void clearHasBeenLocations() {
+        hasBeenLocations = new HashMap<>();
+    }
+
     public void incrementHasBeenOnCurrent() {
        if (hasBeenLocations.containsKey(selfLoc)) {
-           hasBeenLocations.put(hasBeenLocations.get(selfLoc) + 1);
+           hasBeenLocations.put(selfLoc, hasBeenLocations.get(selfLoc) + 1);
        } else {
            hasBeenLocations.put(selfLoc, 1);
        }
