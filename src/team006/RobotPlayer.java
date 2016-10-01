@@ -2,6 +2,7 @@ package team006;
 
 import battlecode.common.*;
 
+import java.awt.*;
 import java.util.*;
 
 public class RobotPlayer {
@@ -43,11 +44,19 @@ public class RobotPlayer {
                         taskStatus = RobotTasks.TASK_IN_PROGRESS;
                     }
 
+                    int prevTaskStatus = taskStatus;
+
                     if (taskStatus != RobotTasks.TASK_ATTACKING || taskStatus != RobotTasks.TASK_RETREATING) {
                         mapInfo.incrementHasBeenOnCurrent();
                     }
 
                     taskStatus = RobotTasks.pursueTask(rc, mapInfo, assignment);
+
+                    if (taskStatus != prevTaskStatus && (taskStatus == RobotTasks.TASK_RETREATING || taskStatus == RobotTasks.TASK_ATTACKING)){
+                        mapInfo.clearHasBeenLocations();
+                    } else if (taskStatus == RobotTasks.TASK_COMPLETE){
+                        rc.setIndicatorString(2,"Task Complete: " + assignment.assignmentType);
+                    }
 
                     if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
                         SignalManager.signalArchonLoc(rc, mapInfo);

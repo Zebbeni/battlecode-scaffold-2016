@@ -9,6 +9,8 @@ public class SignalManager {
     public static int SIG_ASSIST = 1;
     public static int SIG_UPDATE_ARCHON_LOC = 2;
     public static int SIG_SCOUT_DENS = 3;
+    public static int SIG_SCOUT_NEUTRALS = 4;
+    public static int SIG_SCOUT_PARTS = 5;
 
     public static void requestHelp(RobotController rc, MapInfo mapInfo, MapLocation location) {
         try {
@@ -42,6 +44,20 @@ public class SignalManager {
                     rc.setIndicatorString(2, "Sent Zombie Den message");
                 }
             }
+        } catch (GameActionException gae) {
+            System.out.println(gae.getMessage());
+            gae.printStackTrace();
+        }
+    }
+
+    public static void scoutResources(RobotController rc, MapInfo mapInfo, MapLocation[] partLocations, RobotInfo[] neutrals) {
+        try {
+            rc.broadcastMessageSignal(SIG_SCOUT_NEUTRALS,neutrals.length,1000);
+            int parts = 0;
+            for (MapLocation partLoc : partLocations) {
+                parts += rc.senseParts(partLoc);
+            }
+            rc.broadcastMessageSignal(SIG_SCOUT_PARTS,parts,1000);
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());
             gae.printStackTrace();

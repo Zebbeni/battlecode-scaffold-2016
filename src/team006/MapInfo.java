@@ -12,6 +12,8 @@ public class MapInfo {
     public Map<Integer, MapLocation> archonLocations = new HashMap<>();
     public Map<MapLocation, Boolean> denLocations = new HashMap<>();
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
+    public Map<MapLocation, Integer> partLocations = new HashMap<>();
+    public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
@@ -31,6 +33,7 @@ public class MapInfo {
     public Signal urgentSignal = null;
     public int[] spawnSchedule = null;
     public int timeTillSpawn = 999999;
+    public int lastRoundScoutMessageSeen = 0;
 
     public MapInfo(RobotController rc) {
         spawnSchedule = rc.getZombieSpawnSchedule().getRounds();
@@ -84,6 +87,13 @@ public class MapInfo {
                     newArchonPositions.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
                     updateZombieDens(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
+                    updateNeutrals(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_SCOUT_PARTS) {
+                    updatePartLocations(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
                 }
             } else {
                 // set urgent signal to this if it's the closest
@@ -141,10 +151,22 @@ public class MapInfo {
         denLocations.put(denLoc, isHere);
     }
 
+    public void updateNeutrals(MapLocation neutralLoc, int[] message){
+        neutralLocations.put(neutralLoc, message[1]);
+    }
+
+    public void updatePartLocations(MapLocation partLoc, int[] message){
+        partLocations.put(partLoc, message[1]);
+    }
+
     // updates the map if anything special needs to happen on task complete
     public void handleTaskComplete(Assignment assignment) {
         if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
             denLocations.put(assignment.targetLocation, false);
+        } else if (assignment.assignmentType == AssignmentManager.ARCH_ACTIVATE_NEUTRALS) {
+            neutralLocations.remove(assignment.targetLocation);
+        } else if (assignment.assignmentType == AssignmentManager.ARCH_COLLECT_PARTS) {
+            partLocations.remove(assignment.targetLocation);
         }
     }
 

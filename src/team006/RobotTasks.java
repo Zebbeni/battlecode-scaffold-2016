@@ -19,6 +19,8 @@ public class RobotTasks {
         try {
             if ( assignment.assignmentType == AssignmentManager.ARCH_COLLECT_PARTS ) {
                 return collectParts(rc, mapInfo, assignment.targetLocation, assignment.targetInt);
+            } else if ( assignment.assignmentType == AssignmentManager.ARCH_ACTIVATE_NEUTRALS) {
+                return activateNeutrals(rc, mapInfo, assignment.targetLocation, assignment.targetInt);
             } else if ( assignment.assignmentType == AssignmentManager.ARCH_BUILD_ROBOTS ){
                 return buildRobot(rc, mapInfo, assignment.targetInt);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_MOVE_TO_LOC ) {
@@ -80,10 +82,8 @@ public class RobotTasks {
                             } else {
                                 thisScore += MapInfo.moveDist(evalLocation, targetLocation);
                             }
-                            if (task != TASK_RETREATING && task != TASK_ATTACKING) {
-                                if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
-                                    thisScore += Math.pow(1.5, (double) mapInfo.hasBeenLocations.get(evalLocation));
-                                }
+                            if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
+                                thisScore += Math.pow(1.5, (double) mapInfo.hasBeenLocations.get(evalLocation));
                             }
                             if (mapInfo.selfType != RobotType.SCOUT) {
                                 thisScore += rubble / 100;
@@ -126,6 +126,7 @@ public class RobotTasks {
                 SignalManager.scoutEnemies(rc, mapInfo, mapInfo.hostileRobots);
                 return TASK_SIGNALED;
             } else if (mapInfo.selfLoc.equals(targetLocation)) {
+                SignalManager.scoutResources(rc, mapInfo, rc.sensePartLocations(mapInfo.selfSenseRadiusSq), rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL));
                 return TASK_COMPLETE;
             } else {
                 return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);
@@ -318,7 +319,7 @@ public class RobotTasks {
     public static int collectParts(RobotController rc, MapInfo mapInfo, MapLocation targetLocation, int radius) {
         try {
             rc.setIndicatorString(0, "collecting parts");
-            if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) > radius * radius) {
+            if (MapInfo.moveDist(mapInfo.selfLoc, targetLocation) > radius) {
                 return timidMoveToLocation(rc, mapInfo, targetLocation);
             }
 
@@ -351,6 +352,42 @@ public class RobotTasks {
         return timidMoveToLocation(rc, mapInfo, targetLocation);
     }
 
+    // Move toward a target location and collect parts in that area
+    // Complete task when rc is on target location and cannot detect any parts
+    public static int activateNeutrals(RobotController rc, MapInfo mapInfo, MapLocation targetLocation, int radius) {
+        try {
+            rc.setIndicatorString(0, "activating neutrals");
+            if (MapInfo.moveDist(mapInfo.selfLoc, targetLocation) > radius) {
+                return timidMoveToLocation(rc, mapInfo, targetLocation);
+            }
+
+            MapLocation targetNeutralLocation = null;
+            RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
+            int minNeutralDist = 999999;
+
+            for (RobotInfo neutral : neutrals ) {
+                MapLocation neutralLoc = neutral.location;
+                int neutralDist = MapInfo.moveDist(mapInfo.selfLoc, neutralLoc);
+                if (neutralDist == 1) {
+                    rc.activate(neutralLoc);
+                    return TASK_IN_PROGRESS;
+                } else if (neutralDist < minNeutralDist) {
+                    minNeutralDist = neutralDist;
+                    targetNeutralLocation = neutralLoc;
+                }
+            }
+            if (targetNeutralLocation == null) {
+                return TASK_COMPLETE;
+            } else {
+                return timidMoveToLocation(rc, mapInfo, targetNeutralLocation);
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+        }
+        return TASK_ABANDONED;
+    }
+
     public static int buildRobot(RobotController rc, MapInfo mapInfo, int typeIndex) {
         try {
             if (mapInfo.hostileRobots.length > 0){
@@ -372,6 +409,9 @@ public class RobotTasks {
                 for (int i = 0; i < 8; i++) {
                     // If possible, build in this direction
                     if (rc.canBuild(dirToBuild, typeToBuild)) {
+                        if (typeToBuild == RobotType.SCOUT){
+                            mapInfo.lastRoundScoutMessageSeen = mapInfo.roundNum;
+                        }
                         rc.build(dirToBuild, typeToBuild);
                         return TASK_COMPLETE;
                     } else {

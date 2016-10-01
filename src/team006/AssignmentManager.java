@@ -32,16 +32,30 @@ public class AssignmentManager {
                 assignmentType = BOT_RUN_AWAY;
 //                targetLocation = mapInfo.getNearestFriendlyArchonLoc(rc);
                 targetLocation = null; // this actually works better than leading the enemy to all archons at once
-            } else if ( Decision.doCollectParts(rc) ) { // TODO: Add a condition to trigger this archon to collect parts
-                assignmentType = ARCH_COLLECT_PARTS;
-                // this will eventually be smarter. Basically, we tell the archon to collect parts
-                // within some distance of a target location
-                MapLocation rcLoc = rc.getLocation();
-                targetLocation = new MapLocation(rcLoc.x + rand.nextInt(11) - 5, rcLoc.y + rand.nextInt(11) - 5);
-                targetInt = 7;
             } else {
-                assignmentType = ARCH_BUILD_ROBOTS;
-                targetInt = Decision.botToBuild(rc, mapInfo);
+                MapLocation bestPartLoc = Decision.getBestPartLocation(rc, mapInfo);
+                int partLocDist = 999999;
+                if (bestPartLoc != null) {
+                    partLocDist = MapInfo.moveDist(mapInfo.selfLoc, bestPartLoc);
+                }
+                MapLocation bestNeutralLoc = Decision.getBestNeutralLocation(mapInfo);
+                int neutralLocDist = 999999;
+                if (bestNeutralLoc != null) {
+                    neutralLocDist = MapInfo.moveDist(mapInfo.selfLoc, bestNeutralLoc);
+                }
+                if (bestNeutralLoc != null || bestPartLoc != null) {
+                    targetInt = 7;
+                    if (partLocDist < neutralLocDist) {
+                        assignmentType = ARCH_COLLECT_PARTS;
+                        targetLocation = bestPartLoc;
+                    } else {
+                        assignmentType = ARCH_ACTIVATE_NEUTRALS;
+                        targetLocation = bestNeutralLoc;
+                    }
+                } else {
+                    assignmentType = ARCH_BUILD_ROBOTS;
+                    targetInt = Decision.botToBuild(rc, mapInfo);
+                }
             }
         } else if ( mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD){
 
@@ -54,16 +68,13 @@ public class AssignmentManager {
             }
 
         } else if ( rc.getType() == RobotType.SCOUT ){
-
             assignmentType = BOT_SCOUT;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(1001) - 500, rcLoc.y + rand.nextInt(1001) - 500);
+            targetLocation = new MapLocation(7 * (Math.round(mapInfo.selfLoc.x + (rand.nextInt(3) - 1) * 7)/7), 7 * (Math.round(mapInfo.selfLoc.y + (rand.nextInt(3) - 1) * 7))/7);
 
         } else if ( rc.getType() == RobotType.VIPER ){
 
             assignmentType = BOT_PATROL;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(21) - 10, rcLoc.y + rand.nextInt(21) - 10);
+            targetLocation = new MapLocation(mapInfo.selfLoc.x + rand.nextInt(21) - 10, mapInfo.selfLoc.y + rand.nextInt(21) - 10);
 
         } else if ( rc.getType() == RobotType.TURRET ){
 
