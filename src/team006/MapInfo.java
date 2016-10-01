@@ -18,6 +18,7 @@ public class MapInfo {
     public RobotType selfType = null;
     public Team selfTeam = null;
     public int selfId;
+    public RobotInfo[] hostileRobots;
     public boolean selfCanClearRubble;
     public int selfSenseRadiusSq = 0;
     public int selfAttackRadiusSq = 0;
@@ -45,6 +46,7 @@ public class MapInfo {
         selfWeaponDelay = rc.getWeaponDelay();
         roundNum = rc.getRoundNum();
         urgentSignal = null;
+        hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
 
         // Update Zombie Spawn Date
         if (spawnSchedule.length > 0) {

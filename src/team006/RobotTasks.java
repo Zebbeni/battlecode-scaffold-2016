@@ -2,8 +2,6 @@ package team006;
 
 import battlecode.common.*;
 
-import java.awt.*;
-
 /**
  * Created by andrewalbers on 9/14/16.
  */
@@ -30,7 +28,7 @@ public class RobotTasks {
             } else if ( assignment.assignmentType == AssignmentManager.BOT_TIMID_MOVE_TO_LOC ){
                 return timidMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_RUN_AWAY ){
-                return retreatToLocation(rc, mapInfo, assignment.targetLocation);
+                return retreat(rc, mapInfo);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_PATROL ){
                 return attackMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if (assignment.assignmentType == AssignmentManager.BOT_TURRET_DEFEND) {
@@ -77,7 +75,11 @@ public class RobotTasks {
                     if (rc.onTheMap(evalLocation)) {
                         rubble = rc.senseRubble(evalLocation);
                         if (rc.canMove(evalDirection) || rubble >= 100) {
-                            thisScore += MapInfo.moveDist(evalLocation, targetLocation);
+                            if (task == TASK_RETREATING) {
+                                thisScore -= MapInfo.moveDist(evalLocation, targetLocation);
+                            } else {
+                                thisScore += MapInfo.moveDist(evalLocation, targetLocation);
+                            }
                             if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
                                 thisScore += Math.pow(1.5, (double)mapInfo.hasBeenLocations.get(evalLocation));
                             }
@@ -119,8 +121,7 @@ public class RobotTasks {
         try {
             rc.setIndicatorString(0, "scouting");
             if (mapInfo.roundNum - mapInfo.selfLastSignaled > 10) {
-                RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
-                SignalManager.scoutEnemies(rc, mapInfo, hostileBots);
+                SignalManager.scoutEnemies(rc, mapInfo, mapInfo.hostileRobots);
                 return TASK_SIGNALED;
             } else if (mapInfo.selfLoc.equals(targetLocation)) {
                 return TASK_COMPLETE;
@@ -176,7 +177,6 @@ public class RobotTasks {
     // Move toward a location attacking any enemies along the way
     public static int attackMoveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
             double minThreatEffort = 99999;
             double minNonThreatEffort = 99999;
             int minRange = mapInfo.selfType == RobotType.TURRET ? 5 : 0;
@@ -184,7 +184,7 @@ public class RobotTasks {
             MapLocation threatLoc = null;
             MapLocation nonThreatLoc = null; // location of nearest enemy archon or den
 
-            if (hostileBots.length > 0) {
+            if (mapInfo.hostileRobots.length > 0) {
                 if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50) {
                     SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
                     rc.setIndicatorString(2, "selfLastSignaled: " + mapInfo.selfLastSignaled);
@@ -192,7 +192,7 @@ public class RobotTasks {
                 } else {
                     double thisEffort;
                     // find and attack closest enemy bot
-                    for (RobotInfo info : hostileBots) {
+                    for (RobotInfo info : mapInfo.hostileRobots) {
                         // Find optimal attack location
                         int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
                         if (thisDist > minRange) {
@@ -267,11 +267,10 @@ public class RobotTasks {
     public static int timidMoveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
             rc.setIndicatorString(1, "timid moving to location");
-            RobotInfo[] hostileRobots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
-            for (RobotInfo info : hostileRobots) {
-                if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 50){
+            if (mapInfo.hostileRobots.length > 0){
+                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 25){
                     // request assistance
-                    SignalManager.requestHelp(rc, mapInfo, info.location);
+                    SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
                     return TASK_SIGNALED;
                 } else {
                     return TASK_ABANDONED;
@@ -337,6 +336,15 @@ public class RobotTasks {
 
     public static int buildRobot(RobotController rc, MapInfo mapInfo, int typeIndex) {
         try {
+            if (mapInfo.hostileRobots.length > 0){
+                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 25){
+                    // request assistance
+                    SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
+                    return TASK_SIGNALED;
+                } else {
+                    return TASK_ABANDONED;
+                }
+            }
             rc.setIndicatorString(0, "building Robots");
             // Choose a random unit to build
             RobotType typeToBuild = team006.Constants.ROBOT_TYPES[typeIndex];
@@ -364,32 +372,28 @@ public class RobotTasks {
 
     // Retreats to a given target location until no enemies in sight
     // If target location is null, moves in the opposite direction from the closest enemy
-    public static int retreatToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
+    public static int retreat(RobotController rc, MapInfo mapInfo) {
         try {
             rc.setIndicatorString(0, "retreating");
-            RobotInfo[] hostileBots = rc.senseHostileRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq);
-            if (hostileBots.length == 0) {
+            if (mapInfo.hostileRobots.length == 0) {
                 return TASK_COMPLETE;
-            } else if (targetLocation != null) {
-                return moveToLocation(rc, mapInfo, targetLocation, TASK_RETREATING);
             } else {
-                for (RobotInfo info : hostileBots) {
-                    Direction oppositeDir = mapInfo.selfLoc.directionTo(info.location).opposite();
-                    if (rc.canMove(oppositeDir)) {
-                        rc.move(oppositeDir);
-                        return TASK_IN_PROGRESS;
-                    } else if (rc.canMove(oppositeDir.rotateRight())) {
-                        rc.move(oppositeDir.rotateRight());
-                        return TASK_IN_PROGRESS;
-                    } else if (rc.canMove(oppositeDir.rotateLeft())) {
-                        rc.move(oppositeDir.rotateLeft());
-                        return TASK_IN_PROGRESS;
-                    }
+                int sumX = 0;
+                int sumY = 0;
+                int sumAttackPower = 0;
+                for (RobotInfo info : mapInfo.hostileRobots) {
+                    double attackPower = info.attackPower;
+                    sumX += attackPower * info.location.x;
+                    sumY += attackPower * info.location.y;
+                    sumAttackPower += attackPower;
                 }
+                MapLocation worstLocation = new MapLocation(sumX/sumAttackPower,sumY/sumAttackPower);
+                // moveToLocation will find best way away from worstLocation if task is TASK_RETREATING
+                return moveToLocation(rc, mapInfo, worstLocation, TASK_RETREATING);
             }
-        } catch (GameActionException gae) {
-            System.out.println(gae.getMessage());
-            gae.printStackTrace();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
         return TASK_IN_PROGRESS;
     }

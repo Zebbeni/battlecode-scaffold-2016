@@ -2,7 +2,6 @@ package team006;
 
 import battlecode.common.*;
 
-import java.awt.*;
 import java.util.*;
 
 public class RobotPlayer {
