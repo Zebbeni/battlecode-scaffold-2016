@@ -29,12 +29,10 @@ public class Decision {
     // return index of robot type to build from Constants.ROBOT_TYPES
     public static int botToBuild(RobotController rc, MapInfo mapInfo) {
         rc.setIndicatorString(2,"selfScoutsCreated: " + mapInfo.selfScoutsCreated);
-        if (mapInfo.timeTillSpawn < 80) {
+        if (rand.nextInt(20) == 9) {
+            return 0;
+        } else if (mapInfo.timeTillSpawn < 50) {
             return 2; // build guards if zombies to spawn soon
-        } else if (rand.nextInt(22) == 1) {
-            return 0; // about 1 in 22 bots should be a scout
-        } else if (rand.nextInt(16) == 15) {
-            return 4;
         }
         return 1;
     }
