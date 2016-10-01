@@ -80,8 +80,10 @@ public class RobotTasks {
                             } else {
                                 thisScore += MapInfo.moveDist(evalLocation, targetLocation);
                             }
-                            if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
-                                thisScore += Math.pow(1.5, (double)mapInfo.hasBeenLocations.get(evalLocation));
+                            if (task != TASK_RETREATING && task != TASK_ATTACKING) {
+                                if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
+                                    thisScore += Math.pow(1.5, (double) mapInfo.hasBeenLocations.get(evalLocation));
+                                }
                             }
                             if (mapInfo.selfType != RobotType.SCOUT) {
                                 thisScore += rubble / 100;
@@ -220,28 +222,40 @@ public class RobotTasks {
                     attackLoc = threatLoc != null ? threatLoc : nonThreatLoc;
 
                     if (attackLoc != null) {
-                        if (mapInfo.isOverPowered()){
-                            // if overpowered, retreat while not shooting
-                            return retreat(rc, mapInfo);
-                        } else if (mapInfo.selfWeaponDelay >= 1) {
-                            rc.setIndicatorString(1, "recharging");
-                            if (mapInfo.selfType == RobotType.TURRET) {
+
+                        if (mapInfo.selfWeaponReady) {
+                            if (rc.canAttackLocation(attackLoc)) {
+                                rc.setIndicatorString(1, "attacking location");
+                                rc.attackLocation(attackLoc);
                                 return TASK_ATTACKING;
-                            } else if (rc.canAttackLocation(attackLoc) == false) {
-                                // if mobile, pursue target while recharging
+                            } else {
                                 return moveToLocation(rc, mapInfo, attackLoc, TASK_ATTACKING);
                             }
-                        } else if (rc.canAttackLocation(attackLoc)) {
-                            rc.setIndicatorString(1, "attacking location");
-                            rc.attackLocation(attackLoc);
-                            return TASK_IN_PROGRESS;
                         } else {
                             if (mapInfo.selfType == RobotType.TURRET) {
                                 rc.setIndicatorString(1, "no enemies in range");
                                 return TASK_IN_PROGRESS;
-                            } else {
-                                // if mobile, pursue target
-                                return moveToLocation(rc, mapInfo, attackLoc, TASK_ATTACKING);
+                            } else if (mapInfo.isOverPowered()) {
+                                // if overpowered, retreat while not shooting
+                                return retreat(rc, mapInfo);
+                            } else if (mapInfo.selfAttackRadiusSq > 1){
+                                // see if we can move to a more optimal firing location
+                                int currDist = mapInfo.selfLoc.distanceSquaredTo(attackLoc);
+                                int bestDist = mapInfo.selfLoc.distanceSquaredTo(attackLoc);
+                                int maxDist = mapInfo.selfAttackRadiusSq;
+                                Direction bestDir = null;
+                                for (Direction dirToMove : Constants.DIRECTIONS){
+                                    if (rc.canMove(dirToMove)){
+                                        int newDist = mapInfo.selfLoc.add(dirToMove).distanceSquaredTo(attackLoc);
+                                        if (newDist <= maxDist && newDist > (double)currDist * 1.5) {
+                                            bestDir = dirToMove;
+                                        }
+                                    }
+                                }
+                                if (bestDir != null) {
+                                    rc.move(bestDir);
+                                    return TASK_ATTACKING;
+                                }
                             }
                         }
                     }

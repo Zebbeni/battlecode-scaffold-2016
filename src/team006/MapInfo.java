@@ -25,6 +25,7 @@ public class MapInfo {
     public int selfAttackRadiusSq = 0;
     public double selfAttackPower = 0;
     public double selfWeaponDelay = 0;
+    public boolean selfWeaponReady = false;
     public int selfLastSignaled = 0;
     public MapLocation selfLoc = null;
     public Signal urgentSignal = null;
@@ -36,7 +37,6 @@ public class MapInfo {
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
-        selfHealth = rc.getHealth();
         selfAttackPower = selfType.attackPower;
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
@@ -49,6 +49,8 @@ public class MapInfo {
         selfLoc = rc.getLocation();
         selfWeaponDelay = rc.getWeaponDelay();
         roundNum = rc.getRoundNum();
+        selfHealth = rc.getHealth();
+        selfWeaponReady = rc.isWeaponReady();
         urgentSignal = null;
         hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
         friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
