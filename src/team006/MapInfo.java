@@ -18,10 +18,12 @@ public class MapInfo {
     public RobotType selfType = null;
     public Team selfTeam = null;
     public int selfId;
+    public double selfHealth;
     public RobotInfo[] hostileRobots;
-    public boolean selfCanClearRubble;
+    public RobotInfo[] friendlyRobots;
     public int selfSenseRadiusSq = 0;
     public int selfAttackRadiusSq = 0;
+    public double selfAttackPower = 0;
     public double selfWeaponDelay = 0;
     public int selfLastSignaled = 0;
     public MapLocation selfLoc = null;
@@ -34,6 +36,8 @@ public class MapInfo {
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
+        selfHealth = rc.getHealth();
+        selfAttackPower = selfType.attackPower;
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
     }
@@ -47,6 +51,7 @@ public class MapInfo {
         roundNum = rc.getRoundNum();
         urgentSignal = null;
         hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
+        friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
 
         // Update Zombie Spawn Date
         if (spawnSchedule.length > 0) {
@@ -158,5 +163,21 @@ public class MapInfo {
        } else {
            hasBeenLocations.put(selfLoc, 1);
        }
+    }
+
+    public boolean isOverPowered() {
+        double enemyPower = 0;
+        double friendlyPower = selfAttackPower * selfHealth;
+        for (RobotInfo enemy : hostileRobots) {
+            if (enemy.type.canAttack()) {
+                enemyPower += enemy.attackPower * enemy.health;
+            }
+        }
+        for (RobotInfo friend : friendlyRobots) {
+            if (friend.type.canAttack()) {
+                friendlyPower += friend.attackPower * friend.health;
+            }
+        }
+        return enemyPower > friendlyPower;
     }
 }

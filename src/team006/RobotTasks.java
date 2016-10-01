@@ -220,11 +220,14 @@ public class RobotTasks {
                     attackLoc = threatLoc != null ? threatLoc : nonThreatLoc;
 
                     if (attackLoc != null) {
-                        if (mapInfo.selfWeaponDelay >= 1) {
+                        if (mapInfo.isOverPowered()){
+                            // if overpowered, retreat while not shooting
+                            return retreat(rc, mapInfo);
+                        } else if (mapInfo.selfWeaponDelay >= 1) {
                             rc.setIndicatorString(1, "recharging");
                             if (mapInfo.selfType == RobotType.TURRET) {
                                 return TASK_ATTACKING;
-                            } else if (rc.canAttackLocation(attackLoc) == false){
+                            } else if (rc.canAttackLocation(attackLoc) == false) {
                                 // if mobile, pursue target while recharging
                                 return moveToLocation(rc, mapInfo, attackLoc, TASK_ATTACKING);
                             }
