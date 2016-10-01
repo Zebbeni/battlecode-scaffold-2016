@@ -65,24 +65,24 @@ public class MapInfo {
         MapLocation thisLocation;
         int minUrgentDist = 9999999;
         for (Signal signal : signals){
-            if (signal.getTeam() == selfTeam) {
-                thisLocation = signal.getLocation();
-                int[] message = signal.getMessage();
-                if (message != null) {
-                    if (message[0] == SignalManager.SIG_ASSIST) {
-                        // set urgent signal to this if it's the closest
-                        minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
-                    } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
-                        newArchonPositions.put(signal.getID(),signal.getLocation());
-                    } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
-                        updateZombieDens(thisLocation, message);
-                    }
-                } else {
+            thisLocation = signal.getLocation();
+            int[] message = signal.getMessage();
+            if (message != null) {
+                if (message[0] == SignalManager.SIG_ASSIST) {
                     // set urgent signal to this if it's the closest
                     minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+                } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
+                    newArchonPositions.put(signal.getID(),signal.getLocation());
+                } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
+                    updateZombieDens(thisLocation, message);
                 }
+            } else {
+                // set urgent signal to this if it's the closest
+                minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
             }
         }
+
+        rc.setIndicatorString(2, "received " + signals.length + " signals. Round: " + roundNum + " hasBeen: " + hasBeenLocations.size());
 
         if (selfType == RobotType.ARCHON) {
             // stop recording last signals from scouts that are probably dead

@@ -15,7 +15,7 @@ public class SignalManager {
             if (mapInfo.selfType == RobotType.ARCHON) {
                 rc.broadcastMessageSignal(SIG_ASSIST, encodeLocation(mapInfo.selfLoc, location), 1000);
             } else {
-                rc.broadcastSignal(100);
+                rc.broadcastSignal(400);
             }
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());

@@ -19,6 +19,7 @@ public class AssignmentManager {
     public static int BOT_TURRET_DEFEND = 9;
     public static int BOT_SCOUT = 10;
     public static int BOT_KILL_DEN = 11;
+    public static int BOT_ASSIST_LOC;
 
     public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo) {
 
@@ -79,18 +80,27 @@ public class AssignmentManager {
 
         int assignmentType = 0;
         int targetInt = 0;
-        MapLocation targetLocation;
+        MapLocation targetLocation = signal.getLocation();
+        if (message != null) {
+            targetLocation = SignalManager.decodeLocation(signal.getLocation(), message[1]);
+        }
 
         if (assignment.assignmentType != AssignmentManager.BOT_KILL_DEN && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
+
             if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD) {
-                assignmentType = BOT_ATTACK_MOVE_TO_LOC;
-                targetLocation = SignalManager.decodeLocation(signal.getLocation(),message[1]);
+                // don't interrupt current assignment if this one is farther away
+                if (assignment.assignmentType == AssignmentManager.BOT_ASSIST_LOC){
+                    if (MapInfo.moveDist(mapInfo.selfLoc,targetLocation) > MapInfo.moveDist(mapInfo.selfLoc,assignment.targetLocation)){
+                        return null;
+                    }
+                }
+                assignmentType = BOT_ASSIST_LOC;
                 return new Assignment(targetInt, assignmentType, targetLocation);
             } else {
-                return assignment;
+                return null;
             }
         } else {
-            return assignment;
+            return null;
         }
     }
 
