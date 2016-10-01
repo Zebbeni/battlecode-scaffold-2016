@@ -8,9 +8,7 @@ import java.util.Random;
  * Created by andrewalbers on 9/14/16.
  */
 public class AssignmentManager {
-    public static int ARCH_COLLECT_PARTS = 1; // MapLocation
-    public static int ARCH_BUILD_ROBOTS = 2; // --
-    public static int ARCH_ACTIVATE_NEUTRALS = 3;
+    public static int ARCHON_ACTION = 1;
     public static int BOT_MOVE_TO_LOC = 4;
     public static int BOT_ATTACK_MOVE_TO_LOC = 5;
     public static int BOT_TIMID_MOVE_TO_LOC = 6;
@@ -28,35 +26,9 @@ public class AssignmentManager {
         MapLocation targetLocation = null;
 
         if ( rc.getType() == RobotType.ARCHON ) {
-            if ( Decision.doRunAway(rc, mapInfo)) {
-                assignmentType = BOT_RUN_AWAY;
-//                targetLocation = mapInfo.getNearestFriendlyArchonLoc(rc);
-                targetLocation = null; // this actually works better than leading the enemy to all archons at once
-            } else {
-                MapLocation bestPartLoc = Decision.getBestPartLocation(rc, mapInfo);
-                int partLocDist = 999999;
-                if (bestPartLoc != null) {
-                    partLocDist = MapInfo.moveDist(mapInfo.selfLoc, bestPartLoc);
-                }
-                MapLocation bestNeutralLoc = Decision.getBestNeutralLocation(mapInfo);
-                int neutralLocDist = 999999;
-                if (bestNeutralLoc != null) {
-                    neutralLocDist = MapInfo.moveDist(mapInfo.selfLoc, bestNeutralLoc);
-                }
-                if (bestNeutralLoc != null || bestPartLoc != null) {
-                    targetInt = 7;
-                    if (partLocDist < neutralLocDist) {
-                        assignmentType = ARCH_COLLECT_PARTS;
-                        targetLocation = bestPartLoc;
-                    } else {
-                        assignmentType = ARCH_ACTIVATE_NEUTRALS;
-                        targetLocation = bestNeutralLoc;
-                    }
-                } else {
-                    assignmentType = ARCH_BUILD_ROBOTS;
-                    targetInt = Decision.botToBuild(rc, mapInfo);
-                }
-            }
+
+            assignmentType = ARCHON_ACTION;
+
         } else if ( mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD){
 
             assignmentType = BOT_PATROL;

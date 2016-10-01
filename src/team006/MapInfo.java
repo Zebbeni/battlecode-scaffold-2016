@@ -35,6 +35,8 @@ public class MapInfo {
     public int timeTillSpawn = 999999;
     public int lastRoundScoutMessageSeen = 0;
 
+    public Random rand;
+
     public MapInfo(RobotController rc) {
         spawnSchedule = rc.getZombieSpawnSchedule().getRounds();
         selfType = rc.getType();
@@ -43,6 +45,7 @@ public class MapInfo {
         selfAttackPower = selfType.attackPower;
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
+        rand = new Random(selfId);
     }
 
     public void updateAll(RobotController rc) {
@@ -100,8 +103,6 @@ public class MapInfo {
                 minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
             }
         }
-
-        rc.setIndicatorString(2, "received " + signals.length + " signals. Round: " + roundNum + " hasBeen: " + hasBeenLocations.size());
 
         if (selfType == RobotType.ARCHON) {
             // stop recording last signals from scouts that are probably dead
@@ -163,10 +164,6 @@ public class MapInfo {
     public void handleTaskComplete(Assignment assignment) {
         if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
             denLocations.put(assignment.targetLocation, false);
-        } else if (assignment.assignmentType == AssignmentManager.ARCH_ACTIVATE_NEUTRALS) {
-            neutralLocations.remove(assignment.targetLocation);
-        } else if (assignment.assignmentType == AssignmentManager.ARCH_COLLECT_PARTS) {
-            partLocations.remove(assignment.targetLocation);
         }
     }
 

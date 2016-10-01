@@ -2,6 +2,8 @@ package team006;
 
 import battlecode.common.*;
 
+import java.util.Random;
+
 /**
  * Created by andrewalbers on 9/14/16.
  */
@@ -17,12 +19,8 @@ public class RobotTasks {
 
     public static int pursueTask(RobotController rc, MapInfo mapInfo, Assignment assignment) {
         try {
-            if ( assignment.assignmentType == AssignmentManager.ARCH_COLLECT_PARTS ) {
-                return collectParts(rc, mapInfo, assignment.targetLocation, assignment.targetInt);
-            } else if ( assignment.assignmentType == AssignmentManager.ARCH_ACTIVATE_NEUTRALS) {
-                return activateNeutrals(rc, mapInfo, assignment.targetLocation, assignment.targetInt);
-            } else if ( assignment.assignmentType == AssignmentManager.ARCH_BUILD_ROBOTS ){
-                return buildRobot(rc, mapInfo, assignment.targetInt);
+            if ( assignment.assignmentType == AssignmentManager.ARCHON_ACTION ) {
+                return archonAction(rc, mapInfo);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_MOVE_TO_LOC ) {
                 return moveToLocation(rc, mapInfo, assignment.targetLocation, TASK_IN_PROGRESS);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_ATTACK_MOVE_TO_LOC ){
@@ -54,9 +52,9 @@ public class RobotTasks {
     // (set task = TASK_IN_PROGRESS normally)
     public static int moveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation, int task) {
         try {
-            if (rc.getLocation().equals(targetLocation)) {
+            if (mapInfo.selfLoc.equals(targetLocation)) {
                 // If goal reached
-                rc.setIndicatorString(1, "task complete");
+                rc.setIndicatorString(1, "move task complete");
                 return TASK_COMPLETE;
             } else {
 
@@ -236,9 +234,9 @@ public class RobotTasks {
                             if (mapInfo.selfType == RobotType.TURRET) {
                                 rc.setIndicatorString(1, "no enemies in range");
                                 return TASK_IN_PROGRESS;
-                            } else if (mapInfo.isOverPowered()) {
-                                // if overpowered, retreat while not shooting
-                                return retreat(rc, mapInfo);
+//                            } else if (mapInfo.isOverPowered()) {
+//                                // if overpowered, retreat while not shooting
+//                                return retreat(rc, mapInfo);
                             } else if (mapInfo.selfAttackRadiusSq > 1){
                                 // see if we can move to a more optimal firing location
                                 int currDist = mapInfo.selfLoc.distanceSquaredTo(attackLoc);
@@ -284,174 +282,137 @@ public class RobotTasks {
     // This should typically only be used by scouts and archons
     public static int timidMoveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            rc.setIndicatorString(1, "timid moving to location");
             if (mapInfo.hostileRobots.length > 0){
-                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 25){
+                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50){
                     // request assistance
                     SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
+                    rc.setIndicatorString(2, "Signaled for help!");
                     return TASK_SIGNALED;
                 } else {
+                    rc.setIndicatorString(2, "Abandoned timid move!");
                     return TASK_ABANDONED;
                 }
-            }
-            if (mapInfo.selfType == RobotType.ARCHON) {
-                RobotInfo[] neutralRobots = rc.senseNearbyRobots(mapInfo.selfLoc, mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
-                for (RobotInfo neutralInfo : neutralRobots) {
-                    if (mapInfo.selfLoc.distanceSquaredTo(neutralInfo.location) == 1) {
-                        rc.activate(neutralInfo.location);
-                        rc.setIndicatorString(1, "activating a neutral");
-                        return TASK_IN_PROGRESS;
-                    }
-                }
-            }
-            if (mapInfo.selfLoc != targetLocation) {
+            } if (mapInfo.selfLoc.equals(targetLocation)){
+                rc.setIndicatorString(2, "Timid move complete!");
+                return TASK_COMPLETE;
+            } else {
+                rc.setIndicatorString(2, "Timid moving in progress...");
                 return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
             e.printStackTrace();
         }
-        return TASK_COMPLETE;
-    }
-
-    // Move toward a target location and collect parts in that area
-    // Complete task when rc is on target location and cannot detect any parts
-    public static int collectParts(RobotController rc, MapInfo mapInfo, MapLocation targetLocation, int radius) {
-        try {
-            rc.setIndicatorString(0, "collecting parts");
-            if (MapInfo.moveDist(mapInfo.selfLoc, targetLocation) > radius) {
-                return timidMoveToLocation(rc, mapInfo, targetLocation);
-            }
-
-            MapLocation targetPartLocation = null;
-            MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
-            int minPartDist = 999999;
-
-            for (MapLocation partLocation : partLocations ) {
-                int partDist = mapInfo.selfLoc.distanceSquaredTo(partLocation);
-                if (partDist < minPartDist && partLocation.distanceSquaredTo(targetLocation) <= radius * radius) {
-                    minPartDist = partDist;
-                    targetPartLocation = partLocation;
-                }
-            }
-            if (targetPartLocation == null) {
-                if (mapInfo.selfLoc.equals(targetLocation)) {
-                    // if no parts found and archon in center of collecting region, task complete
-                    return TASK_COMPLETE;
-                } else {
-                    // if no parts seen, move toward center of target region
-                    return timidMoveToLocation(rc, mapInfo, targetLocation);
-                }
-            } else {
-                return timidMoveToLocation(rc, mapInfo, targetPartLocation);
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
-        }
-        return timidMoveToLocation(rc, mapInfo, targetLocation);
-    }
-
-    // Move toward a target location and collect parts in that area
-    // Complete task when rc is on target location and cannot detect any parts
-    public static int activateNeutrals(RobotController rc, MapInfo mapInfo, MapLocation targetLocation, int radius) {
-        try {
-            rc.setIndicatorString(0, "activating neutrals");
-            if (MapInfo.moveDist(mapInfo.selfLoc, targetLocation) > radius) {
-                return timidMoveToLocation(rc, mapInfo, targetLocation);
-            }
-
-            MapLocation targetNeutralLocation = null;
-            RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
-            int minNeutralDist = 999999;
-
-            for (RobotInfo neutral : neutrals ) {
-                MapLocation neutralLoc = neutral.location;
-                int neutralDist = MapInfo.moveDist(mapInfo.selfLoc, neutralLoc);
-                if (neutralDist == 1) {
-                    rc.activate(neutralLoc);
-                    return TASK_IN_PROGRESS;
-                } else if (neutralDist < minNeutralDist) {
-                    minNeutralDist = neutralDist;
-                    targetNeutralLocation = neutralLoc;
-                }
-            }
-            if (targetNeutralLocation == null) {
-                return TASK_COMPLETE;
-            } else {
-                return timidMoveToLocation(rc, mapInfo, targetNeutralLocation);
-            }
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-            e.printStackTrace();
-        }
+        rc.setIndicatorString(2, "Uh oh, timid move abandoned");
         return TASK_ABANDONED;
     }
 
-    public static int buildRobot(RobotController rc, MapInfo mapInfo, int typeIndex) {
+    public static int archonAction(RobotController rc, MapInfo mapInfo) {
+        // all logic for archon for each round
         try {
-            if (mapInfo.hostileRobots.length > 0){
-                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 25){
-                    // request assistance
-                    SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
-                    return TASK_SIGNALED;
-                } else {
-                    return TASK_ABANDONED;
+            // get neutrals info. If adjacent to a neutral, activate before checking for hostiles
+            RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
+            MapLocation closestNeutralLoc = null;
+            int minNeutralDist = 99999;
+            for (RobotInfo neutral : neutrals) {
+                int neutralDist = mapInfo.selfLoc.distanceSquaredTo(neutral.location);
+                if (neutralDist < minNeutralDist) {
+                    minNeutralDist = neutralDist;
+                    closestNeutralLoc = neutral.location;
+                }
+                if (mapInfo.selfLoc.isAdjacentTo(closestNeutralLoc)) {
+                    rc.activate(closestNeutralLoc);
+                    rc.setIndicatorString(2, "Task complete!");
+                    return TASK_COMPLETE;
                 }
             }
-            rc.setIndicatorString(0, "building Robots");
-            // Choose a random unit to build
-            RobotType typeToBuild = team006.Constants.ROBOT_TYPES[typeIndex];
-            // Check for sufficient parts
-            if (rc.hasBuildRequirements(typeToBuild)) {
-                // Choose a random direction to try to build in
-                Direction dirToBuild = Direction.NORTH;
-                for (int i = 0; i < 8; i++) {
-                    // If possible, build in this direction
-                    if (rc.canBuild(dirToBuild, typeToBuild)) {
-                        if (typeToBuild == RobotType.SCOUT){
-                            mapInfo.lastRoundScoutMessageSeen = mapInfo.roundNum;
+
+            RobotInfo[] hostiles = rc.senseHostileRobots(mapInfo.selfLoc, 13);
+            if (hostiles.length > 0) {
+                return retreat(rc, mapInfo);
+            } else if (closestNeutralLoc != null){
+                return timidMoveToLocation(rc, mapInfo, closestNeutralLoc);
+            } else {
+                if (rc.getTeamParts() < 2000) {
+                    // if team parts under threshold, move toward best part location in sight (if valuable enough)
+                    MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
+                    double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
+                    MapLocation bestPartLocation = null;
+                    for (MapLocation partLoc : partLocations) {
+                        int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
+                        if (partDist != 0) {
+                            double score = rc.senseParts(partLoc) / Math.pow(partDist, 2);
+                            if (score > bestScore) {
+                                bestPartLocation = partLoc;
+                                bestScore = score;
+                            }
                         }
-                        rc.build(dirToBuild, typeToBuild);
-                        return TASK_COMPLETE;
-                    } else {
-                        // Rotate the direction to try
-                        dirToBuild = dirToBuild.rotateLeft();
+                    }
+                    if (bestPartLocation != null) {
+                        return timidMoveToLocation(rc, mapInfo, bestPartLocation);
                     }
                 }
+
+                // If we did none of the above stuff, make a robot!
+
+                RobotType typeToBuild = Constants.ROBOT_TYPES[1]; // default SOLDIER
+
+                if (mapInfo.rand.nextInt(100) < 30) {
+                    typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
+                } else if (mapInfo.rand.nextInt(50) == 1) {
+                    typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT occasionally
+                } else if (mapInfo.rand.nextInt(25) == 1) {
+                    typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
+                }
+                // Check for sufficient parts
+                if (rc.hasBuildRequirements(typeToBuild)) {
+                    // Choose a random direction to try to build in
+                    for (int i = 0; i < 8; i++) {
+                        // If possible, build in this direction
+                        if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
+                            rc.build(Constants.DIRECTIONS[i], typeToBuild);
+                            rc.setIndicatorString(2, "Build task Complete!");
+                            return TASK_COMPLETE;
+                        }
+                    }
+                } else {
+                    return TASK_IN_PROGRESS;
+                }
             }
-        } catch (GameActionException gae) {
-            System.out.println(gae.getMessage());
-            gae.printStackTrace();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
-        return TASK_IN_PROGRESS;
+        rc.setIndicatorString(2, "Uh oh, abandoned archon action");
+        return TASK_ABANDONED;
     }
 
     // Retreats to a given target location until no enemies in sight
     // If target location is null, moves in the opposite direction from the closest enemy
     public static int retreat(RobotController rc, MapInfo mapInfo) {
         try {
-            rc.setIndicatorString(0, "retreating");
             if (mapInfo.hostileRobots.length == 0) {
+                rc.setIndicatorString(2, "Retreat task Complete!");
                 return TASK_COMPLETE;
             } else {
-                int sumX = 0;
-                int sumY = 0;
-                int sumAttackPower = 0;
+                int minDist = 999999;
+                MapLocation closestEnemyLoc = null;
                 for (RobotInfo info : mapInfo.hostileRobots) {
-                    double attackPower = info.attackPower;
-                    sumX += attackPower * info.location.x;
-                    sumY += attackPower * info.location.y;
-                    sumAttackPower += attackPower;
+                    int dist = MapInfo.moveDist(mapInfo.selfLoc, info.location);
+                    if (dist < minDist) {
+                        closestEnemyLoc = info.location;
+                        minDist = dist;
+                    }
                 }
-                MapLocation worstLocation = new MapLocation(sumX/sumAttackPower,sumY/sumAttackPower);
                 // moveToLocation will find best way away from worstLocation if task is TASK_RETREATING
-                return moveToLocation(rc, mapInfo, worstLocation, TASK_RETREATING);
+                rc.setIndicatorString(2, "Retreating in progress...");
+                return moveToLocation(rc, mapInfo, closestEnemyLoc, TASK_RETREATING);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
             e.printStackTrace();
         }
-        return TASK_IN_PROGRESS;
+        rc.setIndicatorString(2, "Uh oh, abandoned retreating");
+        return TASK_ABANDONED;
     }
 }
