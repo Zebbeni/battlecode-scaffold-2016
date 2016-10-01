@@ -79,7 +79,7 @@ public class RobotTasks {
                         if (rc.canMove(evalDirection) || rubble >= 100) {
                             thisScore += MapInfo.moveDist(evalLocation, targetLocation);
                             if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
-                                thisScore += mapInfo.hasBeenLocations.get(evalLocation);
+                                thisScore += Math.pow(1.5, (double)mapInfo.hasBeenLocations.get(evalLocation));
                             }
                             if (mapInfo.selfType != RobotType.SCOUT) {
                                 thisScore += rubble / 100;
