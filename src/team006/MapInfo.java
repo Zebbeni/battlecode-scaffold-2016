@@ -14,7 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
-    public MapLocation lastKnownOpponentLocation = null;
+    public MapLocation lastKnownOpponentLocation = new MapLocation(1000,1000); // just make sure this is never null
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
@@ -93,7 +93,7 @@ public class MapInfo {
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
                     updateZombieDens(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
-                } else if (message[0] = SignalManager.SIG_SCOUT_OPPONENT) {
+                } else if (message[0] == SignalManager.SIG_SCOUT_OPPONENT) {
                     updateLastKnownOpponentLocation(thisLocation, message);
                 }else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
                     updateNeutrals(thisLocation, message);

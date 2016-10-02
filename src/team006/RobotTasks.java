@@ -2,6 +2,7 @@ package team006;
 
 import battlecode.common.*;
 
+import java.awt.*;
 import java.util.Random;
 
 /**
@@ -57,7 +58,6 @@ public class RobotTasks {
                 rc.setIndicatorString(1, "move task complete");
                 return TASK_COMPLETE;
             } else {
-
                 // evaluate best spot to go
                 int minScore = 9999999;
                 Direction evalDirection;
@@ -320,7 +320,10 @@ public class RobotTasks {
                 mapInfo.sentSignalAssemble = true;
                 SignalManager.signalAssemble(rc, mapInfo);
                 return TASK_IN_PROGRESS;
-            } else {
+            } else if (mapInfo.sentSignalAssemble) {
+                return archonPrepareViperSquad(rc, mapInfo);
+            }
+            else {
                 // get neutrals info. If adjacent to a neutral, activate before checking for hostiles
                 RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
                 MapLocation closestNeutralLoc = null;
@@ -382,27 +385,55 @@ public class RobotTasks {
                 } else if (mapInfo.rand.nextInt(25) == 1) {
                     typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
                 }
-                // Check for sufficient parts
-                if (rc.hasBuildRequirements(typeToBuild)) {
-                    // Choose a random direction to try to build in
-                    for (int i = 0; i < 8; i++) {
-                        // If possible, build in this direction
-                        if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
-                            rc.build(Constants.DIRECTIONS[i], typeToBuild);
-                            rc.setIndicatorString(2, "Build task Complete!");
-                            return TASK_COMPLETE;
-                        }
-                    }
-                } else {
-                    return TASK_IN_PROGRESS;
-                }
+                return archonBuildRobot(rc, typeToBuild);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
             rc.setIndicatorString(2, e.getMessage());
             e.printStackTrace();
         }
-//        rc.setIndicatorString(2, "Uh oh, abandoned archon action");
+        return TASK_ABANDONED;
+    }
+
+    public static int archonPrepareViperSquad(RobotController rc, MapInfo mapInfo) {
+        try {
+            RobotInfo[] nearby = rc.senseNearbyRobots(2);
+            if (nearby.length > 4){
+                // move away from location of a nearby robot if too close
+                int taskStatus = moveToLocation(rc, mapInfo, nearby[0].location, TASK_RETREATING);
+                return TASK_IN_PROGRESS;
+            } else {
+                return archonBuildRobot(rc, Constants.ROBOT_TYPES[3]);
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            rc.setIndicatorString(2, e.getMessage());
+            e.printStackTrace();
+        }
+        return TASK_ABANDONED;
+    }
+
+    public static int archonBuildRobot(RobotController rc, RobotType typeToBuild) {
+        try{
+            // Check for sufficient parts
+            if (rc.hasBuildRequirements(typeToBuild)) {
+                // Choose a random direction to try to build in
+                for (int i = 0; i < 8; i++) {
+                    // If possible, build in this direction
+                    if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
+                        rc.build(Constants.DIRECTIONS[i], typeToBuild);
+                        rc.setIndicatorString(2, "Build task Complete!");
+                        return TASK_COMPLETE;
+                    }
+                }
+            } else {
+                return TASK_IN_PROGRESS;
+            }
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            rc.setIndicatorString(2, e.getMessage());
+            e.printStackTrace();
+        }
         return TASK_ABANDONED;
     }
 
