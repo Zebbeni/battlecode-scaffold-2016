@@ -12,29 +12,40 @@ public class MapInfo {
     public Map<Integer, MapLocation> archonLocations = new HashMap<>();
     public Map<MapLocation, Boolean> denLocations = new HashMap<>();
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
+    public Map<MapLocation, Integer> partLocations = new HashMap<>();
+    public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
     public RobotType selfType = null;
     public Team selfTeam = null;
     public int selfId;
-    public boolean selfCanClearRubble;
+    public double selfHealth;
+    public RobotInfo[] hostileRobots;
+    public RobotInfo[] friendlyRobots;
     public int selfSenseRadiusSq = 0;
     public int selfAttackRadiusSq = 0;
+    public double selfAttackPower = 0;
     public double selfWeaponDelay = 0;
+    public boolean selfWeaponReady = false;
     public int selfLastSignaled = 0;
     public MapLocation selfLoc = null;
     public Signal urgentSignal = null;
     public int[] spawnSchedule = null;
     public int timeTillSpawn = 999999;
+    public int lastRoundScoutMessageSeen = 0;
+
+    public Random rand;
 
     public MapInfo(RobotController rc) {
         spawnSchedule = rc.getZombieSpawnSchedule().getRounds();
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
+        selfAttackPower = selfType.attackPower;
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
+        rand = new Random(selfId);
     }
 
     public void updateAll(RobotController rc) {
@@ -44,7 +55,11 @@ public class MapInfo {
         selfLoc = rc.getLocation();
         selfWeaponDelay = rc.getWeaponDelay();
         roundNum = rc.getRoundNum();
+        selfHealth = rc.getHealth();
+        selfWeaponReady = rc.isWeaponReady();
         urgentSignal = null;
+        hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
+        friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
 
         // Update Zombie Spawn Date
         if (spawnSchedule.length > 0) {
@@ -75,14 +90,19 @@ public class MapInfo {
                     newArchonPositions.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
                     updateZombieDens(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
+                    updateNeutrals(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_SCOUT_PARTS) {
+                    updatePartLocations(thisLocation, message);
+                    lastRoundScoutMessageSeen = roundNum;
                 }
             } else {
                 // set urgent signal to this if it's the closest
                 minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
             }
         }
-
-        rc.setIndicatorString(2, "received " + signals.length + " signals. Round: " + roundNum + " hasBeen: " + hasBeenLocations.size());
 
         if (selfType == RobotType.ARCHON) {
             // stop recording last signals from scouts that are probably dead
@@ -132,6 +152,14 @@ public class MapInfo {
         denLocations.put(denLoc, isHere);
     }
 
+    public void updateNeutrals(MapLocation neutralLoc, int[] message){
+        neutralLocations.put(neutralLoc, message[1]);
+    }
+
+    public void updatePartLocations(MapLocation partLoc, int[] message){
+        partLocations.put(partLoc, message[1]);
+    }
+
     // updates the map if anything special needs to happen on task complete
     public void handleTaskComplete(Assignment assignment) {
         if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
@@ -156,5 +184,21 @@ public class MapInfo {
        } else {
            hasBeenLocations.put(selfLoc, 1);
        }
+    }
+
+    public boolean isOverPowered() {
+        double enemyPower = 0;
+        double friendlyPower = selfAttackPower * selfHealth;
+        for (RobotInfo enemy : hostileRobots) {
+            if (enemy.type.canAttack()) {
+                enemyPower += enemy.attackPower * enemy.health;
+            }
+        }
+        for (RobotInfo friend : friendlyRobots) {
+            if (friend.type.canAttack()) {
+                friendlyPower += friend.attackPower * friend.health;
+            }
+        }
+        return enemyPower > friendlyPower;
     }
 }

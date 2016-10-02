@@ -8,9 +8,7 @@ import java.util.Random;
  * Created by andrewalbers on 9/14/16.
  */
 public class AssignmentManager {
-    public static int ARCH_COLLECT_PARTS = 1; // MapLocation
-    public static int ARCH_BUILD_ROBOTS = 2; // --
-    public static int ARCH_ACTIVATE_NEUTRALS = 3;
+    public static int ARCHON_ACTION = 1;
     public static int BOT_MOVE_TO_LOC = 4;
     public static int BOT_ATTACK_MOVE_TO_LOC = 5;
     public static int BOT_TIMID_MOVE_TO_LOC = 6;
@@ -28,21 +26,9 @@ public class AssignmentManager {
         MapLocation targetLocation = null;
 
         if ( rc.getType() == RobotType.ARCHON ) {
-            if ( Decision.doRunAway(rc, mapInfo)) {
-                assignmentType = BOT_RUN_AWAY;
-//                targetLocation = mapInfo.getNearestFriendlyArchonLoc(rc);
-                targetLocation = null; // this actually works better than leading the enemy to all archons at once
-            } else if ( Decision.doCollectParts(rc) ) { // TODO: Add a condition to trigger this archon to collect parts
-                assignmentType = ARCH_COLLECT_PARTS;
-                // this will eventually be smarter. Basically, we tell the archon to collect parts
-                // within some distance of a target location
-                MapLocation rcLoc = rc.getLocation();
-                targetLocation = new MapLocation(rcLoc.x + rand.nextInt(11) - 5, rcLoc.y + rand.nextInt(11) - 5);
-                targetInt = 7;
-            } else {
-                assignmentType = ARCH_BUILD_ROBOTS;
-                targetInt = Decision.botToBuild(rc, mapInfo);
-            }
+
+            assignmentType = ARCHON_ACTION;
+
         } else if ( mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD){
 
             assignmentType = BOT_PATROL;
@@ -54,16 +40,13 @@ public class AssignmentManager {
             }
 
         } else if ( rc.getType() == RobotType.SCOUT ){
-
             assignmentType = BOT_SCOUT;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(1001) - 500, rcLoc.y + rand.nextInt(1001) - 500);
+            targetLocation = new MapLocation(7 * (Math.round(mapInfo.selfLoc.x + (rand.nextInt(3) - 1) * 7)/7), 7 * (Math.round(mapInfo.selfLoc.y + (rand.nextInt(3) - 1) * 7))/7);
 
         } else if ( rc.getType() == RobotType.VIPER ){
 
             assignmentType = BOT_PATROL;
-            MapLocation rcLoc = rc.getLocation();
-            targetLocation = new MapLocation(rcLoc.x + rand.nextInt(21) - 10, rcLoc.y + rand.nextInt(21) - 10);
+            targetLocation = new MapLocation(mapInfo.selfLoc.x + rand.nextInt(21) - 10, mapInfo.selfLoc.y + rand.nextInt(21) - 10);
 
         } else if ( rc.getType() == RobotType.TURRET ){
 

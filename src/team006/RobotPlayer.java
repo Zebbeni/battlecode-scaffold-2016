@@ -29,8 +29,6 @@ public class RobotPlayer {
 
                     mapInfo.updateAll(rc);
 
-                    rc.setIndicatorString(0,"dens: " + mapInfo.denLocations.size());
-
                     if (mapInfo.urgentSignal != null){
                         Assignment newAssignment = AssignmentManager.getSignalAssignment(rc, mapInfo, mapInfo.urgentSignal, assignment);
                         if (newAssignment != null) {
@@ -44,11 +42,17 @@ public class RobotPlayer {
                         taskStatus = RobotTasks.TASK_IN_PROGRESS;
                     }
 
+                    int prevTaskStatus = taskStatus;
+
                     if (taskStatus != RobotTasks.TASK_ATTACKING || taskStatus != RobotTasks.TASK_RETREATING) {
                         mapInfo.incrementHasBeenOnCurrent();
                     }
 
                     taskStatus = RobotTasks.pursueTask(rc, mapInfo, assignment);
+
+                    if (taskStatus != prevTaskStatus && (taskStatus == RobotTasks.TASK_RETREATING || taskStatus == RobotTasks.TASK_ATTACKING)){
+                        mapInfo.clearHasBeenLocations();
+                    }
 
                     if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
                         SignalManager.signalArchonLoc(rc, mapInfo);
