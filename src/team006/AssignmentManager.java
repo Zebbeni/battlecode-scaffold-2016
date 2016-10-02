@@ -66,11 +66,20 @@ public class AssignmentManager {
         MapLocation targetLocation = signal.getLocation();
         if (message != null) {
             targetLocation = SignalManager.decodeLocation(signal.getLocation(), message[1]);
+
+            if (message != null && message[0] == SignalManager.SIG_ASSEMBLE_ALL) {
+                if (mapInfo.selfType.canAttack()) {
+                    assignmentType = BOT_MOVE_TO_LOC;
+                    mapInfo.sentSignalAssemble = true;
+                    rc.setIndicatorString(1, "Attempting to Assemble...");
+                    return new Assignment(targetInt, assignmentType, targetLocation);
+                }
+            }
         }
 
         if (assignment.assignmentType != AssignmentManager.BOT_KILL_DEN && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
 
-            if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD) {
+            if (mapInfo.selfType.canAttack()) {
                 // don't interrupt current assignment if this one is farther away
                 if (assignment.assignmentType == AssignmentManager.BOT_ASSIST_LOC){
                     if (MapInfo.moveDist(mapInfo.selfLoc,targetLocation) > MapInfo.moveDist(mapInfo.selfLoc,assignment.targetLocation)){

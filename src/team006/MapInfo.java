@@ -14,6 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
+    public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
@@ -34,6 +35,7 @@ public class MapInfo {
     public int[] spawnSchedule = null;
     public int timeTillSpawn = 999999;
     public int lastRoundScoutMessageSeen = 0;
+    public boolean sentSignalAssemble = false;
 
     public Random rand;
 
@@ -91,12 +93,19 @@ public class MapInfo {
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
                     updateZombieDens(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
-                } else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
+                } else if (message[0] = SignalManager.SIG_SCOUT_OPPONENT) {
+                    updateLastKnownOpponentLocation(thisLocation, message);
+                }else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
                     updateNeutrals(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_PARTS) {
                     updatePartLocations(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_ASSEMBLE_ALL) {
+                    // a special signal that outweighs other signals. If received, break out and follow it
+                    urgentSignal = signal;
+                    sentSignalAssemble = true;
+                    break;
                 }
             } else {
                 // set urgent signal to this if it's the closest
@@ -150,6 +159,10 @@ public class MapInfo {
 
     public void updateZombieDens(MapLocation denLoc, boolean isHere) {
         denLocations.put(denLoc, isHere);
+    }
+
+    public void updateLastKnownOpponentLocation(MapLocation sigLoc, int[] message){
+        lastKnownOpponentLocation = SignalManager.decodeLocation(sigLoc, message[1]);
     }
 
     public void updateNeutrals(MapLocation neutralLoc, int[] message){

@@ -99,7 +99,7 @@ public class RobotTasks {
 
                 if (locToMove != null) {
                     if (rubbleToClear < 50 || mapInfo.selfType == RobotType.SCOUT) {
-                        rc.setIndicatorString(1, "moving to location");
+                        rc.setIndicatorString(1, "moving to location: " + targetLocation.x + ", " + targetLocation.y);
                         rc.move(dirToMove);
                     } else {
                         rc.setIndicatorString(1, "clearing rubble");
@@ -314,86 +314,95 @@ public class RobotTasks {
     public static int archonAction(RobotController rc, MapInfo mapInfo) {
         // all logic for archon for each round
         try {
-            // get neutrals info. If adjacent to a neutral, activate before checking for hostiles
-            RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
-            MapLocation closestNeutralLoc = null;
-            int minNeutralDist = 99999;
-            for (RobotInfo neutral : neutrals) {
-                int neutralDist = mapInfo.selfLoc.distanceSquaredTo(neutral.location);
-                if (neutralDist < minNeutralDist) {
-                    minNeutralDist = neutralDist;
-                    closestNeutralLoc = neutral.location;
-                }
-                if (mapInfo.selfLoc.isAdjacentTo(closestNeutralLoc)) {
-                    rc.activate(closestNeutralLoc);
-                    rc.setIndicatorString(2, "Task complete!");
-                    return TASK_COMPLETE;
-                }
-            }
 
-            // stop doing regular action if a threatening enemy robot is near
-            RobotInfo[] hostiles = rc.senseHostileRobots(mapInfo.selfLoc, 13);
-            if (hostiles.length > 0) {
-                for (RobotInfo hostile : hostiles) {
-                    if (hostile.type.canAttack()) {
-                        return retreat(rc, mapInfo);
+            if (mapInfo.roundNum >= 1000 && !mapInfo.sentSignalAssemble) {
+                rc.setIndicatorString(2, "Assemble!!!!");
+                mapInfo.sentSignalAssemble = true;
+                SignalManager.signalAssemble(rc, mapInfo);
+                return TASK_IN_PROGRESS;
+            } else {
+                // get neutrals info. If adjacent to a neutral, activate before checking for hostiles
+                RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
+                MapLocation closestNeutralLoc = null;
+                int minNeutralDist = 99999;
+                for (RobotInfo neutral : neutrals) {
+                    int neutralDist = mapInfo.selfLoc.distanceSquaredTo(neutral.location);
+                    if (neutralDist < minNeutralDist) {
+                        minNeutralDist = neutralDist;
+                        closestNeutralLoc = neutral.location;
                     }
-                }
-            }
-
-            if (closestNeutralLoc != null){
-                return timidMoveToLocation(rc, mapInfo, closestNeutralLoc);
-            }
-
-            // if team parts under threshold, move toward best part location in sight (if valuable enough)
-            double teamParts = rc.getTeamParts();
-            MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
-            double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
-            MapLocation bestPartLocation = null;
-            for (MapLocation partLoc : partLocations) {
-                int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
-                if (partDist != 0) {
-                    double score = (200 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts +1)); // add 1 so we don't divide by 0
-                    if (score > bestScore) {
-                        bestPartLocation = partLoc;
-                        bestScore = score;
-                    }
-                }
-            }
-            if (bestPartLocation != null) {
-                return timidMoveToLocation(rc, mapInfo, bestPartLocation);
-            }
-
-            // If we did none of the above stuff, make a robot!
-
-            RobotType typeToBuild = Constants.ROBOT_TYPES[1]; // default SOLDIER
-
-            if (mapInfo.rand.nextInt(100) < 30) {
-                typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
-            } else if (mapInfo.rand.nextInt(50) == 1) {
-                typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT occasionally
-            } else if (mapInfo.rand.nextInt(25) == 1) {
-                typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
-            }
-            // Check for sufficient parts
-            if (rc.hasBuildRequirements(typeToBuild)) {
-                // Choose a random direction to try to build in
-                for (int i = 0; i < 8; i++) {
-                    // If possible, build in this direction
-                    if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
-                        rc.build(Constants.DIRECTIONS[i], typeToBuild);
-                        rc.setIndicatorString(2, "Build task Complete!");
+                    if (mapInfo.selfLoc.isAdjacentTo(closestNeutralLoc)) {
+                        rc.activate(closestNeutralLoc);
+                        rc.setIndicatorString(2, "Task complete!");
                         return TASK_COMPLETE;
                     }
                 }
-            } else {
-                return TASK_IN_PROGRESS;
+
+                // stop doing regular action if a threatening enemy robot is near
+                RobotInfo[] hostiles = rc.senseHostileRobots(mapInfo.selfLoc, 13);
+                if (hostiles.length > 0) {
+                    for (RobotInfo hostile : hostiles) {
+                        if (hostile.type.canAttack()) {
+                            return retreat(rc, mapInfo);
+                        }
+                    }
+                }
+
+                if (closestNeutralLoc != null) {
+                    return timidMoveToLocation(rc, mapInfo, closestNeutralLoc);
+                }
+
+                // if team parts under threshold, move toward best part location in sight (if valuable enough)
+                double teamParts = rc.getTeamParts();
+                MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
+                double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
+                MapLocation bestPartLocation = null;
+                for (MapLocation partLoc : partLocations) {
+                    int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
+                    if (partDist != 0) {
+                        double score = (200 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts + 1)); // add 1 so we don't divide by 0
+                        if (score > bestScore) {
+                            bestPartLocation = partLoc;
+                            bestScore = score;
+                        }
+                    }
+                }
+                if (bestPartLocation != null) {
+                    return timidMoveToLocation(rc, mapInfo, bestPartLocation);
+                }
+
+                // If we did none of the above stuff, make a robot!
+
+                RobotType typeToBuild = Constants.ROBOT_TYPES[1]; // default SOLDIER
+
+                if (mapInfo.rand.nextInt(100) < 30) {
+                    typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
+                } else if (mapInfo.rand.nextInt(50) == 1) {
+                    typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT occasionally
+                } else if (mapInfo.rand.nextInt(25) == 1) {
+                    typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
+                }
+                // Check for sufficient parts
+                if (rc.hasBuildRequirements(typeToBuild)) {
+                    // Choose a random direction to try to build in
+                    for (int i = 0; i < 8; i++) {
+                        // If possible, build in this direction
+                        if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
+                            rc.build(Constants.DIRECTIONS[i], typeToBuild);
+                            rc.setIndicatorString(2, "Build task Complete!");
+                            return TASK_COMPLETE;
+                        }
+                    }
+                } else {
+                    return TASK_IN_PROGRESS;
+                }
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
+            rc.setIndicatorString(2, e.getMessage());
             e.printStackTrace();
         }
-        rc.setIndicatorString(2, "Uh oh, abandoned archon action");
+//        rc.setIndicatorString(2, "Uh oh, abandoned archon action");
         return TASK_ABANDONED;
     }
 
