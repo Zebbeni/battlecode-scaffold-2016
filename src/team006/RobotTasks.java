@@ -283,14 +283,18 @@ public class RobotTasks {
     public static int timidMoveToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
             if (mapInfo.hostileRobots.length > 0){
-                if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50){
-                    // request assistance
-                    SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
-                    rc.setIndicatorString(2, "Signaled for help!");
-                    return TASK_SIGNALED;
-                } else {
-                    rc.setIndicatorString(2, "Abandoned timid move!");
-                    return TASK_ABANDONED;
+                for (RobotInfo hostile : mapInfo.hostileRobots) {
+                    if (hostile.type.canAttack()) {
+                        if (mapInfo.roundNum - mapInfo.selfLastSignaled > 50) {
+                            // request assistance
+                            SignalManager.requestHelp(rc, mapInfo, mapInfo.selfLoc);
+                            rc.setIndicatorString(2, "Signaled for help!");
+                            return TASK_SIGNALED;
+                        } else {
+                            rc.setIndicatorString(2, "Abandoned timid move!");
+                            return TASK_ABANDONED;
+                        }
+                    }
                 }
             } if (mapInfo.selfLoc.equals(targetLocation)){
                 rc.setIndicatorString(2, "Timid move complete!");
@@ -327,56 +331,63 @@ public class RobotTasks {
                 }
             }
 
+            // stop doing regular action if a threatening enemy robot is near
             RobotInfo[] hostiles = rc.senseHostileRobots(mapInfo.selfLoc, 13);
             if (hostiles.length > 0) {
-                return retreat(rc, mapInfo);
-            } else if (closestNeutralLoc != null){
+                for (RobotInfo hostile : hostiles) {
+                    if (hostile.type.canAttack()) {
+                        return retreat(rc, mapInfo);
+                    }
+                }
+            }
+
+            if (closestNeutralLoc != null){
                 return timidMoveToLocation(rc, mapInfo, closestNeutralLoc);
+            }
+
+            // if team parts under threshold, move toward best part location in sight (if valuable enough)
+            double teamParts = rc.getTeamParts();
+            MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
+            double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
+            MapLocation bestPartLocation = null;
+            for (MapLocation partLoc : partLocations) {
+                int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
+                if (partDist != 0) {
+                    double score = (200 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts +1)); // add 1 so we don't divide by 0
+                    if (score > bestScore) {
+                        bestPartLocation = partLoc;
+                        bestScore = score;
+                    }
+                }
+            }
+            if (bestPartLocation != null) {
+                return timidMoveToLocation(rc, mapInfo, bestPartLocation);
+            }
+
+            // If we did none of the above stuff, make a robot!
+
+            RobotType typeToBuild = Constants.ROBOT_TYPES[1]; // default SOLDIER
+
+            if (mapInfo.rand.nextInt(100) < 30) {
+                typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
+            } else if (mapInfo.rand.nextInt(50) == 1) {
+                typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT occasionally
+            } else if (mapInfo.rand.nextInt(25) == 1) {
+                typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
+            }
+            // Check for sufficient parts
+            if (rc.hasBuildRequirements(typeToBuild)) {
+                // Choose a random direction to try to build in
+                for (int i = 0; i < 8; i++) {
+                    // If possible, build in this direction
+                    if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
+                        rc.build(Constants.DIRECTIONS[i], typeToBuild);
+                        rc.setIndicatorString(2, "Build task Complete!");
+                        return TASK_COMPLETE;
+                    }
+                }
             } else {
-                // if team parts under threshold, move toward best part location in sight (if valuable enough)
-                double teamParts = rc.getTeamParts();
-                MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
-                double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
-                MapLocation bestPartLocation = null;
-                for (MapLocation partLoc : partLocations) {
-                    int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
-                    if (partDist != 0) {
-                        double score = (50 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts +1)); // add 1 so we don't divide by 0
-                        if (score > bestScore) {
-                            bestPartLocation = partLoc;
-                            bestScore = score;
-                        }
-                    }
-                }
-                if (bestPartLocation != null) {
-                    return timidMoveToLocation(rc, mapInfo, bestPartLocation);
-                }
-
-                // If we did none of the above stuff, make a robot!
-
-                RobotType typeToBuild = Constants.ROBOT_TYPES[1]; // default SOLDIER
-
-                if (mapInfo.rand.nextInt(100) < 30) {
-                    typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
-                } else if (mapInfo.rand.nextInt(50) == 1) {
-                    typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT occasionally
-                } else if (mapInfo.rand.nextInt(25) == 1) {
-                    typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
-                }
-                // Check for sufficient parts
-                if (rc.hasBuildRequirements(typeToBuild)) {
-                    // Choose a random direction to try to build in
-                    for (int i = 0; i < 8; i++) {
-                        // If possible, build in this direction
-                        if (rc.canBuild(Constants.DIRECTIONS[i], typeToBuild)) {
-                            rc.build(Constants.DIRECTIONS[i], typeToBuild);
-                            rc.setIndicatorString(2, "Build task Complete!");
-                            return TASK_COMPLETE;
-                        }
-                    }
-                } else {
-                    return TASK_IN_PROGRESS;
-                }
+                return TASK_IN_PROGRESS;
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -398,7 +409,7 @@ public class RobotTasks {
                 MapLocation closestEnemyLoc = null;
                 for (RobotInfo info : mapInfo.hostileRobots) {
                     int dist = MapInfo.moveDist(mapInfo.selfLoc, info.location);
-                    if (dist < minDist) {
+                    if (dist < minDist && info.type != RobotType.ZOMBIEDEN && info.type != RobotType.ARCHON && info.type != RobotType.SCOUT) {
                         closestEnemyLoc = info.location;
                         minDist = dist;
                     }
