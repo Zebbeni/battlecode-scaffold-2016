@@ -197,7 +197,7 @@ public class RobotTasks {
                         // Find optimal attack location
                         int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
                         if (thisDist > minRange) {
-                            if (info.type == RobotType.ARCHON || info.type == RobotType.SCOUT || info.type == RobotType.ZOMBIEDEN) {
+                            if (info.type.canAttack() == false) {
                                 // only consider non-threat targets if they are near the actual target location
                                 // ie. don't stop to shoot dens if on the way to help another fighter
                                 if (info.type == RobotType.ZOMBIEDEN){
