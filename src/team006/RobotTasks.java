@@ -333,24 +333,23 @@ public class RobotTasks {
             } else if (closestNeutralLoc != null){
                 return timidMoveToLocation(rc, mapInfo, closestNeutralLoc);
             } else {
-                if (rc.getTeamParts() < 2000) {
-                    // if team parts under threshold, move toward best part location in sight (if valuable enough)
-                    MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
-                    double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
-                    MapLocation bestPartLocation = null;
-                    for (MapLocation partLoc : partLocations) {
-                        int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
-                        if (partDist != 0) {
-                            double score = rc.senseParts(partLoc) / Math.pow(partDist, 2);
-                            if (score > bestScore) {
-                                bestPartLocation = partLoc;
-                                bestScore = score;
-                            }
+                // if team parts under threshold, move toward best part location in sight (if valuable enough)
+                double teamParts = rc.getTeamParts();
+                MapLocation[] partLocations = rc.sensePartLocations(mapInfo.selfSenseRadiusSq);
+                double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
+                MapLocation bestPartLocation = null;
+                for (MapLocation partLoc : partLocations) {
+                    int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
+                    if (partDist != 0) {
+                        double score = (50 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts +1)); // add 1 so we don't divide by 0
+                        if (score > bestScore) {
+                            bestPartLocation = partLoc;
+                            bestScore = score;
                         }
                     }
-                    if (bestPartLocation != null) {
-                        return timidMoveToLocation(rc, mapInfo, bestPartLocation);
-                    }
+                }
+                if (bestPartLocation != null) {
+                    return timidMoveToLocation(rc, mapInfo, bestPartLocation);
                 }
 
                 // If we did none of the above stuff, make a robot!
