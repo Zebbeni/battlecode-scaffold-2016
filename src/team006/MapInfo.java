@@ -14,12 +14,13 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
-    public MapLocation lastKnownOpponentLocation = new MapLocation(1000,1000); // just make sure this is never null
+    public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
     public int selfScoutsCreated = 0;
     public RobotType selfType = null;
     public Team selfTeam = null;
+    public Team opponentTeam = null;
     public int selfId;
     public double selfHealth;
     public RobotInfo[] hostileRobots;
@@ -34,8 +35,18 @@ public class MapInfo {
     public Signal urgentSignal = null;
     public int[] spawnSchedule = null;
     public int timeTillSpawn = 999999;
+    public int lastRoundZombieSeen = 0;
     public int lastRoundScoutMessageSeen = 0;
-    public boolean sentSignalAssemble = false;
+    public int selfCreatedRound;                // round # when unit was created
+    public int scoutsCreated = 0;
+    public int vipersCreated = 0;               // number of vipers this unit has created
+    public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
+
+    public int scoutDirection = 3; // NORTH, EAST, SOUTH, WEST
+    public int scoutDistTraveled = 0; // number of times traveled in this direction before turning
+    public int scoutDistToTravel = 1; // number of times to travel in this direction before turning
+    public boolean scoutTurnedOnce = true; // keeps track of turns. On second turn, set back to false, increment scoutDistToTravel and scoutDirection % 4
+    public int scoutRoundsTraveled = 0; // keep track of turns searching for next spot. If too long, just get the next assignment
 
     public Random rand;
 
@@ -44,6 +55,8 @@ public class MapInfo {
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
+        opponentTeam = selfTeam.equals(Team.A) ? Team.B : Team.A;
+        selfCreatedRound = rc.getRoundNum();
         selfAttackPower = selfType.attackPower;
         selfSenseRadiusSq = selfType.sensorRadiusSquared;
         selfAttackRadiusSq = selfType.attackRadiusSquared;
@@ -52,7 +65,6 @@ public class MapInfo {
 
     public void updateAll(RobotController rc) {
         // Read and update signals
-        Map<Integer, MapLocation> newArchonPositions = new HashMap<Integer, MapLocation>();
         Signal[] signals = rc.emptySignalQueue();
         selfLoc = rc.getLocation();
         selfWeaponDelay = rc.getWeaponDelay();
@@ -89,27 +101,37 @@ public class MapInfo {
                     // set urgent signal to this if it's the closest
                     minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
                 } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
-                    newArchonPositions.put(signal.getID(),signal.getLocation());
+                    archonLocations.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
                     updateZombieDens(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_OPPONENT) {
                     updateLastKnownOpponentLocation(thisLocation, message);
-                }else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
+                } else if (message[0] == SignalManager.SIG_SCOUT_ZOMBIE) {
+                    lastRoundZombieSeen = roundNum;
+                } else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
                     updateNeutrals(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_PARTS) {
                     updatePartLocations(thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
-                } else if (message[0] == SignalManager.SIG_ASSEMBLE_ALL) {
+                } else if (message[0] == SignalManager.SIG_TEAM_ATTACK) {
                     // a special signal that outweighs other signals. If received, break out and follow it
                     urgentSignal = signal;
-                    sentSignalAssemble = true;
+                    teamAttackSignalRound = roundNum;
                     break;
                 }
             } else {
                 // set urgent signal to this if it's the closest
                 minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+            }
+        }
+
+        for (MapLocation denLoc : denLocations.keySet()) {
+            if (denLocations.get(denLoc)) {
+                if (rc.canSense(denLoc)) {
+                    updateZombieDens(denLoc, false);
+                }
             }
         }
 
@@ -121,10 +143,6 @@ public class MapInfo {
                     it.remove();
                 }
             }
-        }
-
-        if (newArchonPositions.size() > 0) {
-            archonLocations = newArchonPositions;
         }
     }
 
@@ -154,11 +172,15 @@ public class MapInfo {
     }
 
     public void updateZombieDens(MapLocation sigLoc, int[] message) {
+        lastRoundZombieSeen = roundNum;
         denLocations.put(SignalManager.decodeLocation(sigLoc, message[1]),true);
     }
 
     public void updateZombieDens(MapLocation denLoc, boolean isHere) {
         denLocations.put(denLoc, isHere);
+        if (isHere) {
+            lastRoundZombieSeen = roundNum;
+        }
     }
 
     public void updateLastKnownOpponentLocation(MapLocation sigLoc, int[] message){
@@ -197,6 +219,30 @@ public class MapInfo {
        } else {
            hasBeenLocations.put(selfLoc, 1);
        }
+    }
+
+    public boolean needAnotherScout() {
+        for (int archonId : archonLocations.keySet()) {
+            if (archonId < selfId) {
+                return false; // don't make scouts if not the lowest id archon
+            }
+        }
+        return roundNum > 100 && (double)scoutsCreated / (double)roundNum < 0.002;
+    }
+
+    public boolean isTimeForVipers() {
+        // if it's been > 1000 rounds since last zombie sighting, and team attack signal hasn't been given, start creating vipers
+        if (roundNum - Math.max(selfCreatedRound, lastRoundZombieSeen) > 1000 && teamAttackSignalRound == -1){
+            return true;
+        }
+        return false;
+    }
+
+    public boolean isTimeToSignalTeamAttack() {
+        if (teamAttackSignalRound == -1 && vipersCreated >= 10 && lastKnownOpponentLocation != null){
+            return true;
+        }
+        return false;
     }
 
     public boolean isOverPowered() {

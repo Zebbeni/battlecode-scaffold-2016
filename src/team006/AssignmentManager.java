@@ -17,7 +17,8 @@ public class AssignmentManager {
     public static int BOT_TURRET_DEFEND = 9;
     public static int BOT_SCOUT = 10;
     public static int BOT_KILL_DEN = 11;
-    public static int BOT_ASSIST_LOC;
+    public static int BOT_ASSIST_LOC = 12;
+    public static int BOT_ASSEMBLE_TO_LOC = 13;
 
     public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo) {
 
@@ -25,28 +26,48 @@ public class AssignmentManager {
         int targetInt = 0;
         MapLocation targetLocation = null;
 
-        if ( rc.getType() == RobotType.ARCHON ) {
+        if (rc.getType() == RobotType.ARCHON) {
 
             assignmentType = ARCHON_ACTION;
 
-        } else if ( mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD){
+        } else if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD) {
 
-            assignmentType = BOT_PATROL;
+            assignmentType = BOT_KILL_DEN;
             targetLocation = getNearestZombieDen(mapInfo);
-            if (targetLocation == null) {
-                targetLocation = new MapLocation(mapInfo.selfLoc.x + rand.nextInt(21) - 10, mapInfo.selfLoc.y + rand.nextInt(21) - 10);
-            } else {
-                assignmentType = BOT_KILL_DEN;
+            if (mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+                assignmentType = BOT_ATTACK_MOVE_TO_LOC;
+                targetLocation = mapInfo.lastKnownOpponentLocation;
+            } else if (targetLocation == null) {
+                assignmentType = BOT_PATROL;
             }
 
+        } else if(rc.getType() == RobotType.VIPER){
+
+            assignmentType = BOT_ATTACK_MOVE_TO_LOC;
+            targetLocation = mapInfo.lastKnownOpponentLocation;
+
         } else if ( rc.getType() == RobotType.SCOUT ){
+
             assignmentType = BOT_SCOUT;
-            targetLocation = new MapLocation(7 * (Math.round(mapInfo.selfLoc.x + (rand.nextInt(3) - 1) * 7)/7), 7 * (Math.round(mapInfo.selfLoc.y + (rand.nextInt(3) - 1) * 7))/7);
+            mapInfo.scoutDistTraveled++;
+            mapInfo.scoutRoundsTraveled = 0; // reset rounds traveled
 
-        } else if ( rc.getType() == RobotType.VIPER ){
+            if (mapInfo.scoutDistTraveled == mapInfo.scoutDistToTravel) {
 
-            assignmentType = BOT_PATROL;
-            targetLocation = new MapLocation(mapInfo.selfLoc.x + rand.nextInt(21) - 10, mapInfo.selfLoc.y + rand.nextInt(21) - 10);
+                // turn
+                mapInfo.scoutDistTraveled = 0;
+                mapInfo.scoutDirection = (mapInfo.scoutDirection + 1) % 4;
+
+                // reset turns scout has made and increase distance if this is turn 2
+                if (mapInfo.scoutTurnedOnce) {
+                    mapInfo.scoutTurnedOnce = false;
+                    mapInfo.scoutDistToTravel++;
+                } else {
+                    mapInfo.scoutTurnedOnce = true;
+                }
+            }
+
+            targetLocation = mapInfo.selfLoc.add(Constants.SCOUT_DIRECTIONS[mapInfo.scoutDirection],7);
 
         } else if ( rc.getType() == RobotType.TURRET ){
 
@@ -59,33 +80,33 @@ public class AssignmentManager {
     }
 
     public static Assignment getSignalAssignment(RobotController rc, MapInfo mapInfo, Signal signal, Assignment assignment) {
-        int[] message = signal.getMessage();
 
+        int[] message = signal.getMessage();
         int assignmentType = 0;
         int targetInt = 0;
         MapLocation targetLocation = signal.getLocation();
+
         if (message != null) {
             targetLocation = SignalManager.decodeLocation(signal.getLocation(), message[1]);
+        }
 
-            if (message != null && message[0] == SignalManager.SIG_ASSEMBLE_ALL) {
-                if (mapInfo.selfType.canAttack()) {
-                    assignmentType = BOT_MOVE_TO_LOC;
-                    mapInfo.sentSignalAssemble = true;
-                    rc.setIndicatorString(1, "Attempting to Assemble...");
-                    return new Assignment(targetInt, assignmentType, targetLocation);
-                }
+        if (mapInfo.teamAttackSignalRound == -1 && message != null && message[0] == SignalManager.SIG_TEAM_ATTACK) {
+            mapInfo.teamAttackSignalRound = mapInfo.roundNum;
+            if (mapInfo.selfType.equals(RobotType.GUARD) || mapInfo.selfType.equals(RobotType.SOLDIER)) {
+                assignmentType = BOT_ASSEMBLE_TO_LOC;
+                return new Assignment(targetInt, assignmentType, targetLocation);
+            } else if (mapInfo.selfType.equals(RobotType.VIPER)){
+                assignmentType = BOT_ATTACK_MOVE_TO_LOC;
+                targetLocation = mapInfo.lastKnownOpponentLocation;
+                return new Assignment(targetInt, assignmentType, targetLocation);
             }
         }
 
-        if (assignment.assignmentType != AssignmentManager.BOT_KILL_DEN && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
+        if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC
+                && assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
+                && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
 
             if (mapInfo.selfType.canAttack()) {
-                // don't interrupt current assignment if this one is farther away
-                if (assignment.assignmentType == AssignmentManager.BOT_ASSIST_LOC){
-                    if (MapInfo.moveDist(mapInfo.selfLoc,targetLocation) > MapInfo.moveDist(mapInfo.selfLoc,assignment.targetLocation)){
-                        return null;
-                    }
-                }
                 assignmentType = BOT_ASSIST_LOC;
                 return new Assignment(targetInt, assignmentType, targetLocation);
             } else {
@@ -98,11 +119,10 @@ public class AssignmentManager {
 
     public static MapLocation getNearestZombieDen(MapInfo mapInfo) {
         MapLocation targetLocation = null;
-        MapLocation rcLoc = mapInfo.selfLoc;
-        int minDist = 625; // don't go further than 25 units to kill a zombie den
+        int minDist = 50; // don't go further than 50 units to kill a zombie den
         for (MapLocation denLoc : mapInfo.denLocations.keySet()) {
-            if (mapInfo.denLocations.get(denLoc) == true) { // TODO: make sure we remove these when found to no longer exist
-                int thisDist = rcLoc.distanceSquaredTo(denLoc);
+            if (mapInfo.denLocations.get(denLoc)) { // TODO: make sure we remove these when found to no longer exist
+                int thisDist = MapInfo.moveDist(mapInfo.selfLoc,denLoc);
                 if (thisDist < minDist) {
                     targetLocation = denLoc;
                     minDist = thisDist;
