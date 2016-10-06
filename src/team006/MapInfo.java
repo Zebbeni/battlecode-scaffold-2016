@@ -23,6 +23,7 @@ public class MapInfo {
     public Team opponentTeam = null;
     public int selfId;
     public double selfHealth;
+    public double selfMaxHealth;
     public RobotInfo[] hostileRobots;
     public RobotInfo[] friendlyRobots;
     public int selfSenseRadiusSq = 0;
@@ -164,11 +165,16 @@ public class MapInfo {
     public int setUrgentSignal(int minDist, MapLocation location, Signal signal) {
         int distToSignal = selfLoc.distanceSquaredTo(location);
         if (distToSignal < minDist) {
-            urgentSignal = signal;
-            return distToSignal;
-        } else {
-            return minDist;
+            // if this signal is closer than any others
+            for (MapLocation archonLoc : archonLocations.values()) {
+                // and if near enough to a known archon location
+                if (moveDist(location, archonLoc) < (double) 20 / (double) 1000 * roundNum) {
+                    urgentSignal = signal;
+                    return distToSignal;
+                }
+            }
         }
+        return minDist;
     }
 
     public void updateZombieDens(MapLocation sigLoc, int[] message) {

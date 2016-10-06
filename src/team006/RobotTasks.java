@@ -18,27 +18,40 @@ public class RobotTasks {
 
     public static int pursueTask(RobotController rc, MapInfo mapInfo, Assignment assignment) {
         try {
+            String targetLoc = assignment.targetLocation == null ? "null" : assignment.targetLocation.x + ", " + assignment.targetLocation.y;
+
             if ( assignment.assignmentType == AssignmentManager.ARCHON_ACTION ) {
+                rc.setIndicatorString(0, "doing archon action");
                 return archonAction(rc, mapInfo);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_MOVE_TO_LOC ) {
+                rc.setIndicatorString(0, "moving to location: " + targetLoc);
                 return moveToLocation(rc, mapInfo, assignment.targetLocation, TASK_IN_PROGRESS);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_ATTACK_MOVE_TO_LOC ){
+                rc.setIndicatorString(0, "attack moving to location: " + targetLoc);
                 return attackMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_TIMID_MOVE_TO_LOC ){
+                rc.setIndicatorString(0, "timid moving to location: " + targetLoc);
                 return timidMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_RUN_AWAY ){
+                rc.setIndicatorString(0, "running away to: " + targetLoc);
                 return retreat(rc, mapInfo);
             } else if ( assignment.assignmentType == AssignmentManager.BOT_PATROL ){
+                rc.setIndicatorString(0, "patrolling to location: " + targetLoc);
                 return attackMoveToLocation(rc, mapInfo, assignment.targetLocation);
             } else if (assignment.assignmentType == AssignmentManager.BOT_TURRET_DEFEND) {
+                rc.setIndicatorString(0, "defending location: " + targetLoc);
                 return turretDefend(rc, mapInfo);
             } else if (assignment.assignmentType == AssignmentManager.BOT_SCOUT) {
+                rc.setIndicatorString(0, "scouting location: " + targetLoc);
                 return scoutLocation(rc, mapInfo, assignment.targetLocation);
             } else if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
+                rc.setIndicatorString(0, "attacking zombie den at: " + targetLoc);
                 return attackZombieDen(rc, mapInfo, assignment.targetLocation);
             } else if (assignment.assignmentType == AssignmentManager.BOT_ASSIST_LOC) {
+                rc.setIndicatorString(0, "assisting at location: " + targetLoc);
                 return assistLocation(rc, mapInfo, assignment.targetLocation);
             } else if (assignment.assignmentType == AssignmentManager.BOT_ASSEMBLE_TO_LOC){
+                rc.setIndicatorString(0, "assembling to location: " + targetLoc);
                 return assembleToLocation(rc, mapInfo, assignment.targetLocation);
             }
         } catch (Exception e) {
@@ -76,7 +89,7 @@ public class RobotTasks {
                         rubble = rc.senseRubble(evalLocation);
                         if (rc.canMove(evalDirection) || rubble >= 100) {
                             if (task == TASK_RETREATING) {
-                                thisScore -= MapInfo.moveDist(evalLocation, targetLocation);
+                                thisScore -= evalLocation.distanceSquaredTo(targetLocation);
                             } else {
                                 thisScore += MapInfo.moveDist(evalLocation, targetLocation);
                             }
@@ -121,7 +134,6 @@ public class RobotTasks {
     public static int scoutLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
             mapInfo.scoutRoundsTraveled++;
-            rc.setIndicatorString(0, "scouting. rounds traveled: " + mapInfo.scoutRoundsTraveled);
             if (mapInfo.roundNum - mapInfo.selfLastSignaled > 10) {
                 SignalManager.scoutEnemies(rc, mapInfo, mapInfo.hostileRobots);
                 return TASK_SIGNALED;
@@ -141,7 +153,6 @@ public class RobotTasks {
     // just use attackMoveToLocation, since
     public static int turretDefend(RobotController rc, MapInfo mapInfo){
         try {
-            rc.setIndicatorString(0, "defending cause I'm a turret");
             return attackMoveToLocation(rc, mapInfo, mapInfo.selfLoc);
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -153,9 +164,10 @@ public class RobotTasks {
     // Move toward den attacking any enemies along way.
     public static int attackZombieDen(RobotController rc, MapInfo mapInfo, MapLocation targetLocation) {
         try {
-            rc.setIndicatorString(0, "attacking Zombie Den");
             if (rc.canSenseLocation(targetLocation)) {
-                if (rc.senseRobotAtLocation(targetLocation) == null) {
+                RobotInfo denLocBot = rc.senseRobotAtLocation(targetLocation);
+                if (denLocBot == null || denLocBot.type != RobotType.ZOMBIEDEN) {
+                    mapInfo.updateZombieDens(targetLocation, false);
                     return TASK_COMPLETE;
                 }
             }
@@ -310,8 +322,21 @@ public class RobotTasks {
                     return timidMoveToLocation(rc, mapInfo, bestPartLocation);
                 }
 
-                // If we did none of the above stuff, make a robot!
-                return archonBuildRobot(rc, mapInfo);
+                // If we did none of the above stuff, try to make a robot
+                int taskStatus = archonBuildRobot(rc, mapInfo);
+
+                // If we couldn't make a new robot this round, check for adjacent friendly robots to repair
+                if (taskStatus != TASK_COMPLETE){
+                    RobotInfo[] adjacentFriends = rc.senseNearbyRobots(2, mapInfo.selfTeam);
+                    for (RobotInfo adjacentFriend : adjacentFriends){
+                        if (adjacentFriend.type != RobotType.ARCHON && adjacentFriend.health < adjacentFriend.type.maxHealth){
+                            rc.repair(adjacentFriend.location);
+                            return TASK_IN_PROGRESS;
+                        }
+                    }
+                }
+
+                return TASK_IN_PROGRESS;
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -351,6 +376,7 @@ public class RobotTasks {
                         return TASK_COMPLETE;
                     }
                 }
+                return TASK_IN_PROGRESS;
             } else {
                 return TASK_IN_PROGRESS;
             }
@@ -418,10 +444,12 @@ public class RobotTasks {
             double thisEffort;
             // find and attack closest enemy bot
 
+            double selfHealthPercent = mapInfo.selfHealth / mapInfo.selfType.maxHealth;
+
             boolean isOpponentHere = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq,mapInfo.opponentTeam).length > 0;
 
             for (RobotInfo info : mapInfo.hostileRobots) {
-                if (!mapInfo.selfType.equals(RobotType.VIPER) || !isOpponentHere || info.team.equals(mapInfo.opponentTeam)) {
+                if (!isOpponentHere || info.team.equals(mapInfo.opponentTeam)) {
                     // Find optimal attack location
                     int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
                     if (thisDist > minRange) {
@@ -431,13 +459,20 @@ public class RobotTasks {
                             if (info.type == RobotType.ZOMBIEDEN) {
                                 mapInfo.updateZombieDens(info.location, true);
                             }
+
                             thisEffort = thisDist * info.health;
+
                             if (thisEffort < minNonThreatEffort) {
                                 minNonThreatEffort = thisEffort;
                                 nonThreatLoc = info.location;
                             }
                         } else {
+
+                            // only consider distance if rc is low health (target closest)
+                            // thisEffort = selfHealthPercent > 0.33 ? thisDist * info.health / info.attackPower : thisDist;
+
                             thisEffort = thisDist * info.health / info.attackPower;
+
                             if (thisEffort < minThreatEffort) {
                                 minThreatEffort = thisEffort;
                                 threatLoc = info.location;
@@ -461,7 +496,7 @@ public class RobotTasks {
                     }
                 } else {
                     if (mapInfo.selfType == RobotType.TURRET) {
-                        rc.setIndicatorString(1, "no enemies in range");
+                        rc.setIndicatorString(1, "watching. no enemies in range");
                         return TASK_IN_PROGRESS;
                     } else if (mapInfo.selfAttackRadiusSq > 1) {
                         // see if we can move to a more optimal firing location

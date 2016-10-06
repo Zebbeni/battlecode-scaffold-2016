@@ -34,7 +34,7 @@ public class AssignmentManager {
 
             assignmentType = BOT_KILL_DEN;
             targetLocation = getNearestZombieDen(mapInfo);
-            if (mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+            if (mapInfo.teamAttackSignalRound != -1 && mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
                 assignmentType = BOT_ATTACK_MOVE_TO_LOC;
                 targetLocation = mapInfo.lastKnownOpponentLocation;
             } else if (targetLocation == null) {
@@ -103,12 +103,15 @@ public class AssignmentManager {
         }
 
         if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC
-                && assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
                 && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
 
             if (mapInfo.selfType.canAttack()) {
-                assignmentType = BOT_ASSIST_LOC;
-                return new Assignment(targetInt, assignmentType, targetLocation);
+                // if not already assisting, or if the new assist location is closer than the original one, set assignment to assisting location
+                if (assignment.assignmentType == AssignmentManager.BOT_ASSIST_LOC || MapInfo.moveDist(mapInfo.selfLoc, targetLocation) < MapInfo.moveDist(mapInfo.selfLoc, assignment.targetLocation)) {
+                        assignmentType = BOT_ASSIST_LOC;
+                        return new Assignment(targetInt, assignmentType, targetLocation);
+                    }
+                }
             } else {
                 return null;
             }
