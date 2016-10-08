@@ -76,9 +76,9 @@ public class RobotTasks {
                         rubble = rc.senseRubble(evalLocation);
                         if (rc.canMove(evalDirection) || rubble >= 100) {
                             if (task == TASK_RETREATING) {
-                                thisScore -= MapInfo.moveDist(evalLocation, targetLocation);
+                                thisScore -= evalLocation.distanceSquaredTo(targetLocation);
                             } else {
-                                thisScore += MapInfo.moveDist(evalLocation, targetLocation);
+                                thisScore += evalLocation.distanceSquaredTo(targetLocation);
                             }
                             if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
                                 thisScore += Math.pow(1.5, (double) mapInfo.hasBeenLocations.get(evalLocation));
@@ -203,7 +203,7 @@ public class RobotTasks {
                 // no enemies found, keep on sitting there
                 rc.setIndicatorString(1, "watching for enemies");
                 return TASK_IN_PROGRESS;
-            } else if (MapInfo.moveDist(mapInfo.selfLoc, targetLocation) > 1) {
+            } else if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) > 1) {
                 rc.setIndicatorString(1, "moving toward target location");
                 return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);
             } else {
@@ -297,7 +297,7 @@ public class RobotTasks {
                 double bestScore = 50.0; // only pursue adjacent parts of 50+, parts 2 away of 200+
                 MapLocation bestPartLocation = null;
                 for (MapLocation partLoc : partLocations) {
-                    int partDist = MapInfo.moveDist(mapInfo.selfLoc, partLoc);
+                    int partDist = mapInfo.selfLoc.distanceSquaredTo(partLoc);
                     if (partDist != 0) {
                         double score = (200 * rc.senseParts(partLoc)) / (Math.pow(partDist, 2) * (teamParts + 1)); // add 1 so we don't divide by 0
                         if (score > bestScore) {
@@ -373,7 +373,7 @@ public class RobotTasks {
                 int minDist = 999999;
                 MapLocation closestEnemyLoc = null;
                 for (RobotInfo info : mapInfo.hostileRobots) {
-                    int dist = MapInfo.moveDist(mapInfo.selfLoc, info.location);
+                    int dist = mapInfo.selfLoc.distanceSquaredTo(info.location);
                     if (dist < minDist && info.type != RobotType.ZOMBIEDEN && info.type != RobotType.ARCHON && info.type != RobotType.SCOUT) {
                         closestEnemyLoc = info.location;
                         minDist = dist;
@@ -393,7 +393,7 @@ public class RobotTasks {
 
     public static int assembleToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation){
         try {
-            if (MapInfo.moveDist(mapInfo.selfLoc,targetLocation) < 5 || mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+            if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) < 25 || mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
                 return TASK_COMPLETE;
             } else {
                 return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);

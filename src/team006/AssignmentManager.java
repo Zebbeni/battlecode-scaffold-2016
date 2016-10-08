@@ -119,10 +119,10 @@ public class AssignmentManager {
 
     public static MapLocation getNearestZombieDen(MapInfo mapInfo) {
         MapLocation targetLocation = null;
-        int minDist = 50; // don't go further than 50 units to kill a zombie den
+        int minDist = 2500; // don't go further than 50 units to kill a zombie den
         for (MapLocation denLoc : mapInfo.denLocations.keySet()) {
             if (mapInfo.denLocations.get(denLoc)) { // TODO: make sure we remove these when found to no longer exist
-                int thisDist = MapInfo.moveDist(mapInfo.selfLoc,denLoc);
+                int thisDist = mapInfo.selfLoc.distanceSquaredTo(denLoc);
                 if (thisDist < minDist) {
                     targetLocation = denLoc;
                     minDist = thisDist;
