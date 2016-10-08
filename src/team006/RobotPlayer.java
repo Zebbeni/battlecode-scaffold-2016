@@ -36,32 +36,24 @@ public class RobotPlayer {
                             mapInfo.clearHasBeenLocations();
                             taskStatus = RobotTasks.TASK_IN_PROGRESS;
                         }
-                    } else if ( taskStatus != RobotTasks.TASK_IN_PROGRESS && taskStatus != RobotTasks.TASK_ATTACKING && taskStatus != RobotTasks.TASK_RETREATING) {
-                        assignment = AssignmentManager.getAssignment(rc, rand, mapInfo);
-                        mapInfo.clearHasBeenLocations();
-                        taskStatus = RobotTasks.TASK_IN_PROGRESS;
                     }
 
-                    int prevTaskStatus = taskStatus;
-
-                    if (taskStatus != RobotTasks.TASK_ATTACKING || taskStatus != RobotTasks.TASK_RETREATING) {
+                    if ( taskStatus != RobotTasks.TASK_IN_PROGRESS && taskStatus != RobotTasks.TASK_ATTACKING && taskStatus != RobotTasks.TASK_RETREATING) {
+                        assignment = AssignmentManager.getAssignment(rc, rand, mapInfo, assignment);
+                        mapInfo.clearHasBeenLocations();
+                        taskStatus = RobotTasks.TASK_IN_PROGRESS;
+                    } else if (taskStatus != RobotTasks.TASK_ATTACKING || taskStatus != RobotTasks.TASK_RETREATING) {
                         mapInfo.incrementHasBeenOnCurrent();
                     }
 
+                    int prevTaskStatus = taskStatus;
                     taskStatus = RobotTasks.pursueTask(rc, mapInfo, assignment);
 
                     if (taskStatus != prevTaskStatus && (taskStatus == RobotTasks.TASK_RETREATING || taskStatus == RobotTasks.TASK_ATTACKING)){
                         mapInfo.clearHasBeenLocations();
                     }
-
                     if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
                         SignalManager.signalArchonLoc(rc, mapInfo);
-                        mapInfo.selfLastSignaled = mapInfo.roundNum;
-                    }
-                    if (taskStatus == RobotTasks.TASK_SIGNALED) {
-                        mapInfo.selfLastSignaled = mapInfo.roundNum;
-                    } else if (taskStatus == RobotTasks.TASK_COMPLETE) {
-                        mapInfo.handleTaskComplete(assignment);
                     }
                 }
                 Clock.yield();
