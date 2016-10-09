@@ -104,9 +104,9 @@ public class SignalManager {
     public static int encodeLocation(MapLocation rcLoc, MapLocation targetLoc) {
         int diffX = targetLoc.x - rcLoc.x;
         int diffY = targetLoc.y - rcLoc.y;
-        int locSignal = Math.abs(diffX) + (100 * Math.abs(diffY));
-        locSignal += diffX < 0 ? 10 : 0;
-        locSignal += diffY < 0 ? 1000 : 0;
+        int locSignal = (100 * Math.abs(diffX)) + Math.abs(diffY);
+        locSignal += diffX < 0 ? 1000 : 0;
+        locSignal += diffY < 0 ? 10 : 0;
         return locSignal;
     }
 
