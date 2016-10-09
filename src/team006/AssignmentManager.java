@@ -114,18 +114,16 @@ public class AssignmentManager {
         }
 
         if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC
-                && assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
                 && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
 
             if (mapInfo.selfType.canAttack()) {
-                assignmentType = BOT_ASSIST_LOC;
-                return new Assignment(targetInt, assignmentType, targetLocation);
-            } else {
-                return null;
+                if (assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC || mapInfo.selfLoc.distanceSquaredTo(targetLocation) < mapInfo.selfLoc.distanceSquaredTo(assignment.targetLocation)) {
+                    assignmentType = BOT_ASSIST_LOC;
+                    return new Assignment(targetInt, assignmentType, targetLocation);
+                }
             }
-        } else {
-            return null;
         }
+        return null;
     }
 
     public static MapLocation getNearestZombieDen(MapInfo mapInfo) {
