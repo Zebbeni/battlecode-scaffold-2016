@@ -36,6 +36,10 @@ public class RobotPlayer {
                             mapInfo.clearHasBeenLocations();
                             taskStatus = RobotTasks.TASK_IN_PROGRESS;
                         }
+                    } else if ( taskStatus != RobotTasks.TASK_IN_PROGRESS && taskStatus != RobotTasks.TASK_ATTACKING && taskStatus != RobotTasks.TASK_RETREATING) {
+                        assignment = AssignmentManager.getAssignment(rc, rand, mapInfo, assignment);
+                        mapInfo.clearHasBeenLocations();
+                        taskStatus = RobotTasks.TASK_IN_PROGRESS;
                     }
 
                     if ( taskStatus != RobotTasks.TASK_IN_PROGRESS && taskStatus != RobotTasks.TASK_ATTACKING && taskStatus != RobotTasks.TASK_RETREATING) {
@@ -54,6 +58,7 @@ public class RobotPlayer {
                     }
                     if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
                         SignalManager.signalArchonLoc(rc, mapInfo);
+                        mapInfo.selfLastSignaled = mapInfo.roundNum;
                     }
                 }
                 Clock.yield();

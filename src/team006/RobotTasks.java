@@ -419,7 +419,7 @@ public class RobotTasks {
 
     public static int assembleToLocation(RobotController rc, MapInfo mapInfo, MapLocation targetLocation){
         try {
-            if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) < 5 || mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+            if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) < 25 || mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
                 return TASK_COMPLETE;
             } else {
                 return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);

@@ -127,6 +127,7 @@ public class MapInfo {
                 minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
             }
         }
+
         try {
             for (MapLocation denLoc : denLocations.keySet()) {
                 if (denLocations.get(denLoc) == true) {
@@ -204,11 +205,11 @@ public class MapInfo {
     }
 
     // return the actual shortest MOVE distance between two locations
-//    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
-//        int xDist = Math.abs(toLoc.x - fromLoc.x);
-//        int yDist = Math.abs(toLoc.y - fromLoc.y);
-//        return Math.max(xDist, yDist);
-//    }
+    //    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
+    //        int xDist = Math.abs(toLoc.x - fromLoc.x);
+    //        int yDist = Math.abs(toLoc.y - fromLoc.y);
+    //        return Math.max(xDist, yDist);
+    //    }
 
     public void clearHasBeenLocations() {
         hasBeenLocations = new HashMap<>();

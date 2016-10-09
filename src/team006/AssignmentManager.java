@@ -36,7 +36,7 @@ public class AssignmentManager {
             assignmentType = BOT_KILL_DEN;
             targetLocation = getNearestZombieDen(mapInfo);
             if (targetLocation == null) {
-                if (mapInfo.teamAttackSignalRound != -1 && mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+                if (mapInfo.teamAttackSignalRound == -1 && mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
                     assignmentType = BOT_ATTACK_MOVE_TO_LOC;
                     targetLocation = mapInfo.lastKnownOpponentLocation;
                 } else {
@@ -52,7 +52,7 @@ public class AssignmentManager {
         } else if ( rc.getType() == RobotType.SCOUT ){
 
             MapLocation prevTargetLoc = mapInfo.selfLoc;
-            if (assignment != null && assignment.targetLocation != null) {
+            if (assignment != null && assignment.targetLocation != null){
                 prevTargetLoc = assignment.targetLocation;
             }
 
