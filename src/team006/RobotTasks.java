@@ -89,9 +89,9 @@ public class RobotTasks {
                         rubble = rc.senseRubble(evalLocation);
                         if (rc.canMove(evalDirection) || rubble >= 100) {
                             if (task == TASK_RETREATING) {
-                                thisScore -= evalLocation.distanceSquaredTo(targetLocation);
+                                thisScore -= Math.sqrt(evalLocation.distanceSquaredTo(targetLocation));
                             } else {
-                                thisScore += evalLocation.distanceSquaredTo(targetLocation);
+                                thisScore += Math.sqrt(evalLocation.distanceSquaredTo(targetLocation));
                             }
                             if (mapInfo.hasBeenLocations.containsKey(evalLocation)) {
                                 thisScore += Math.pow(1.5, (double) mapInfo.hasBeenLocations.get(evalLocation));
