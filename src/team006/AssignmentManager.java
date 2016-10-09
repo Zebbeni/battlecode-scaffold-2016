@@ -126,10 +126,8 @@ public class AssignmentManager {
                         return new Assignment(targetInt, assignmentType, targetLocation);
                 }
             }
-            return null;
-        } else {
-            return null;
         }
+        return null;
     }
 
     public static MapLocation getNearestZombieDen(MapInfo mapInfo) {

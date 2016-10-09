@@ -215,7 +215,7 @@ public class RobotTasks {
                 // no enemies found, keep on sitting there
                 rc.setIndicatorString(1, "watching for enemies");
                 return TASK_IN_PROGRESS;
-            } else if (mapInfo.selfLoc.distanceSquaredTo(targetLocation) > 8) {
+            } else if (mapInfo.selfLoc.distanceSquaredTo(moveTarget) > 8) {
                 rc.setIndicatorString(1, "moving toward target location");
                 return moveToLocation(rc, mapInfo, moveTarget, TASK_IN_PROGRESS);
             } else {
