@@ -20,7 +20,7 @@ public class AssignmentManager {
     public static int BOT_ASSIST_LOC = 12;
     public static int BOT_ASSEMBLE_TO_LOC = 13;
 
-    public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo) {
+    public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo, Assignment assignment) {
 
         int assignmentType = 0;
         int targetInt = 0;
@@ -34,11 +34,13 @@ public class AssignmentManager {
 
             assignmentType = BOT_KILL_DEN;
             targetLocation = getNearestZombieDen(mapInfo);
-            if (mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
-                assignmentType = BOT_ATTACK_MOVE_TO_LOC;
-                targetLocation = mapInfo.lastKnownOpponentLocation;
-            } else if (targetLocation == null) {
-                assignmentType = BOT_PATROL;
+            if (targetLocation == null) {
+                if (mapInfo.teamAttackSignalRound == -1 && mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
+                    assignmentType = BOT_ATTACK_MOVE_TO_LOC;
+                    targetLocation = mapInfo.lastKnownOpponentLocation;
+                } else {
+                    assignmentType = BOT_PATROL;
+                }
             }
 
         } else if(rc.getType() == RobotType.VIPER){
@@ -48,11 +50,16 @@ public class AssignmentManager {
 
         } else if ( rc.getType() == RobotType.SCOUT ){
 
+            MapLocation prevTargetLoc = mapInfo.selfLoc;
+            if (assignment != null && assignment.targetLocation != null){
+                prevTargetLoc = assignment.targetLocation;
+            }
+
             assignmentType = BOT_SCOUT;
             mapInfo.scoutDistTraveled++;
             mapInfo.scoutRoundsTraveled = 0; // reset rounds traveled
 
-            if (mapInfo.scoutDistTraveled == mapInfo.scoutDistToTravel) {
+            if (mapInfo.scoutDistTraveled >= mapInfo.scoutDistToTravel) {
 
                 // turn
                 mapInfo.scoutDistTraveled = 0;
@@ -67,7 +74,7 @@ public class AssignmentManager {
                 }
             }
 
-            targetLocation = mapInfo.selfLoc.add(Constants.SCOUT_DIRECTIONS[mapInfo.scoutDirection],7);
+            targetLocation = prevTargetLoc.add(Constants.SCOUT_DIRECTIONS[mapInfo.scoutDirection],7);
 
         } else if ( rc.getType() == RobotType.TURRET ){
 
@@ -80,6 +87,10 @@ public class AssignmentManager {
     }
 
     public static Assignment getSignalAssignment(RobotController rc, MapInfo mapInfo, Signal signal, Assignment assignment) {
+
+        if (mapInfo.selfType == RobotType.SCOUT) {
+            return null;
+        }
 
         int[] message = signal.getMessage();
         int assignmentType = 0;

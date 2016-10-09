@@ -37,7 +37,7 @@ public class RobotPlayer {
                             taskStatus = RobotTasks.TASK_IN_PROGRESS;
                         }
                     } else if ( taskStatus != RobotTasks.TASK_IN_PROGRESS && taskStatus != RobotTasks.TASK_ATTACKING && taskStatus != RobotTasks.TASK_RETREATING) {
-                        assignment = AssignmentManager.getAssignment(rc, rand, mapInfo);
+                        assignment = AssignmentManager.getAssignment(rc, rand, mapInfo, assignment);
                         mapInfo.clearHasBeenLocations();
                         taskStatus = RobotTasks.TASK_IN_PROGRESS;
                     }
