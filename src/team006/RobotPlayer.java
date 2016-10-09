@@ -60,8 +60,6 @@ public class RobotPlayer {
                     }
                     if (taskStatus == RobotTasks.TASK_SIGNALED) {
                         mapInfo.selfLastSignaled = mapInfo.roundNum;
-                    } else if (taskStatus == RobotTasks.TASK_COMPLETE) {
-                        mapInfo.handleTaskComplete(assignment);
                     }
                 }
                 Clock.yield();

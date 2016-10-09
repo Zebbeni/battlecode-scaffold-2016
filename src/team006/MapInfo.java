@@ -204,13 +204,6 @@ public class MapInfo {
         partLocations.put(partLoc, message[1]);
     }
 
-    // updates the map if anything special needs to happen on task complete
-    public void handleTaskComplete(Assignment assignment) {
-        if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
-            denLocations.put(assignment.targetLocation, false);
-        }
-    }
-
 //    // return the actual shortest MOVE distance between two locations
 //    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
 //        int xDist = Math.abs(toLoc.x - fromLoc.x);
