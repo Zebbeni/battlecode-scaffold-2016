@@ -72,7 +72,7 @@ public class RobotTasks {
                 return TASK_COMPLETE;
             } else {
                 // evaluate best spot to go
-                int minScore = 9999999;
+                double minScore = 9999999;
                 Direction evalDirection;
                 MapLocation evalLocation;
 
@@ -81,7 +81,7 @@ public class RobotTasks {
                 double rubbleToClear = 0;
 
                 for (int i = 0; i < Constants.DIRECTIONS.length; i++) {
-                    int thisScore = 0;
+                    double thisScore = 0.0;
                     double rubble = 0.0;
                     evalDirection = Constants.DIRECTIONS[i];
                     evalLocation = mapInfo.selfLoc.add(evalDirection);
@@ -141,11 +141,17 @@ public class RobotTasks {
             if (mapInfo.hostileRobots.length > 0 && mapInfo.roundNum - mapInfo.selfLastSignaled > 5) {
                 SignalManager.scoutEnemies(rc, mapInfo, mapInfo.hostileRobots);
                 return TASK_IN_PROGRESS;
-            } else if (mapInfo.selfLoc.equals(targetLocation) || mapInfo.scoutRoundsTraveled > 20) {
-                SignalManager.scoutResources(rc, mapInfo, rc.sensePartLocations(mapInfo.selfSenseRadiusSq), rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL));
-                return TASK_COMPLETE;
             } else {
-                return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);
+                Direction dirToTarget = mapInfo.selfLoc.directionTo(targetLocation);
+                MapLocation nextLoc = mapInfo.selfLoc.add(dirToTarget);
+                if (rc.canSense(nextLoc) && !rc.onTheMap(nextLoc)) {
+                    return TASK_COMPLETE;
+                } else if (mapInfo.selfLoc.equals(targetLocation) || mapInfo.scoutRoundsTraveled > 20) {
+                    SignalManager.scoutResources(rc, mapInfo, rc.sensePartLocations(mapInfo.selfSenseRadiusSq), rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL));
+                    return TASK_COMPLETE;
+                } else {
+                    return moveToLocation(rc, mapInfo, targetLocation, TASK_IN_PROGRESS);
+                }
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());

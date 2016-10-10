@@ -14,6 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
+
     public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
@@ -43,11 +44,7 @@ public class MapInfo {
     public int vipersCreated = 0;               // number of vipers this unit has created
     public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
 
-    public int scoutDirection = 3; // NORTH, EAST, SOUTH, WEST
-    public int scoutDistTraveled = -1; // number of times traveled in this direction before turning
-    public int scoutDistToTravel = 0; // number of times to travel in this direction before turning
-    public boolean scoutTurnedOnce = true; // keeps track of turns. On second turn, set back to false, increment scoutDistToTravel and scoutDirection % 4
-    public int scoutRoundsTraveled = 0; // keep track of turns searching for next spot. If too long, just get the next assignment
+    public int scoutRoundsTraveled = 0;
 
     public Random rand;
 

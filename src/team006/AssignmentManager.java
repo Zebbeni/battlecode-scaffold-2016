@@ -1,7 +1,6 @@
 package team006;
 
 import battlecode.common.*;
-import scala.reflect.internal.Trees;
 
 import java.util.Random;
 
@@ -51,32 +50,9 @@ public class AssignmentManager {
 
         } else if ( rc.getType() == RobotType.SCOUT ){
 
-            MapLocation prevTargetLoc = mapInfo.selfLoc;
-            if (assignment != null && assignment.targetLocation != null) {
-                prevTargetLoc = assignment.targetLocation;
-            }
-
+            mapInfo.scoutRoundsTraveled = 0;
             assignmentType = BOT_SCOUT;
-            mapInfo.scoutDistTraveled++;
-            mapInfo.scoutRoundsTraveled = 0; // reset rounds traveled
-
-            if (mapInfo.scoutDistTraveled >= mapInfo.scoutDistToTravel) {
-
-                // turn
-                mapInfo.scoutDistTraveled = 0;
-                mapInfo.scoutDirection = (mapInfo.scoutDirection + 1) % 4;
-
-                // reset turns scout has made and increase distance if this is turn 2
-                if (mapInfo.scoutTurnedOnce) {
-                    // turn
-                    mapInfo.scoutTurnedOnce = false;
-                    mapInfo.scoutDistToTravel++;
-                } else {
-                    mapInfo.scoutTurnedOnce = true;
-                }
-            }
-
-            targetLocation = prevTargetLoc.add(Constants.SCOUT_DIRECTIONS[mapInfo.scoutDirection],7);
+            targetLocation = mapInfo.selfLoc.add(Constants.DIRECTIONS[mapInfo.rand.nextInt(8)], 20);
 
         } else if ( rc.getType() == RobotType.TURRET ){
 
