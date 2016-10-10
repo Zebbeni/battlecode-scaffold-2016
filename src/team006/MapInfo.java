@@ -25,6 +25,7 @@ public class MapInfo {
     public int selfId;
     public double selfHealth;
     public double selfMaxHealth;
+    public boolean selfBeingHealed = false;
     public RobotInfo[] hostileRobots;
     public RobotInfo[] friendlyRobots;
     public int selfSenseRadiusSq = 0;
@@ -53,6 +54,7 @@ public class MapInfo {
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
+        selfMaxHealth = selfType.maxHealth;
         opponentTeam = selfTeam.equals(Team.A) ? Team.B : Team.A;
         selfCreatedRound = rc.getRoundNum();
         selfAttackPower = selfType.attackPower;

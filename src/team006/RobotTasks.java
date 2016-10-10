@@ -15,6 +15,7 @@ public class RobotTasks {
 //    public static int TASK_SIGNALED = 3;
     public static int TASK_ATTACKING = 4;
     public static int TASK_RETREATING = 5;
+    public static int TASK_BEING_HEALED = 6;
 
     public static int pursueTask(RobotController rc, MapInfo mapInfo, Assignment assignment) {
         try {
@@ -217,16 +218,29 @@ public class RobotTasks {
                 } else {
                     return doAttackLogic(rc, mapInfo);
                 }
-            } else if (mapInfo.selfType == RobotType.TURRET) {
-                // no enemies found, keep on sitting there
-                rc.setIndicatorString(1, "watching for enemies");
-                return TASK_IN_PROGRESS;
-            } else if (mapInfo.selfLoc.distanceSquaredTo(moveTarget) > 8) {
-                rc.setIndicatorString(1, "moving toward target location");
-                return moveToLocation(rc, mapInfo, moveTarget, TASK_IN_PROGRESS);
             } else {
-                rc.setIndicatorString(1, "attack move task complete!");
-                return TASK_COMPLETE;
+                double selfHealthPercent = mapInfo.selfHealth / mapInfo.selfMaxHealth;
+                if (selfHealthPercent < 0.75 || mapInfo.selfBeingHealed) {
+
+                    if (mapInfo.selfBeingHealed && selfHealthPercent >= 0.99) {
+                        mapInfo.selfBeingHealed = false;
+                    } else {
+                        mapInfo.selfBeingHealed = true;
+                        return moveToNearestArchon(rc, mapInfo);
+                    }
+                }
+
+                if (mapInfo.selfType == RobotType.TURRET) {
+                    // no enemies found, keep on sitting there
+                    rc.setIndicatorString(1, "watching for enemies");
+                    return TASK_IN_PROGRESS;
+                } else if (mapInfo.selfLoc.distanceSquaredTo(moveTarget) > 8) {
+                    rc.setIndicatorString(1, "moving toward target location");
+                    return moveToLocation(rc, mapInfo, moveTarget, TASK_IN_PROGRESS);
+                } else {
+                    rc.setIndicatorString(1, "attack move task complete!");
+                    return TASK_COMPLETE;
+                }
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -269,6 +283,49 @@ public class RobotTasks {
         return TASK_ABANDONED;
     }
 
+    public static int moveToNearestArchon(RobotController rc, MapInfo mapInfo) {
+        try {
+            int minDist = 999999;
+            MapLocation targetLocation = null;
+
+            for (RobotInfo friend : mapInfo.friendlyRobots) {
+                if (friend.type == RobotType.ARCHON) {
+
+                    // immediately return if already adjacent to an archon
+                    if (mapInfo.selfLoc.isAdjacentTo(friend.location)){
+                        return TASK_BEING_HEALED;
+                    }
+
+                    int thisDist = mapInfo.selfLoc.distanceSquaredTo(friend.location);
+                    if (thisDist < minDist){
+                        minDist = thisDist;
+                        targetLocation = friend.location;
+                    }
+                }
+            }
+
+            if (targetLocation != null){
+                return moveToLocation(rc, mapInfo, targetLocation, TASK_BEING_HEALED);
+            }
+
+            for (MapLocation archonLoc : mapInfo.archonLocations.values()) {
+                int thisDist = mapInfo.selfLoc.distanceSquaredTo(archonLoc);
+                if (thisDist < minDist){
+                    minDist = thisDist;
+                    targetLocation = archonLoc;
+                }
+            }
+
+            return moveToLocation(rc, mapInfo, targetLocation, TASK_BEING_HEALED);
+
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            rc.setIndicatorString(2, e.getMessage());
+            e.printStackTrace();
+        }
+        return TASK_ABANDONED;
+    }
+
     public static int archonAction(RobotController rc, MapInfo mapInfo) {
         // all logic for archon for each round
         try {
@@ -278,6 +335,7 @@ public class RobotTasks {
                 SignalManager.signalAssemble(rc, mapInfo);
                 return TASK_IN_PROGRESS;
             } else {
+
                 // get neutrals info. If adjacent to a neutral, activate before checking for hostiles
                 RobotInfo[] neutrals = rc.senseNearbyRobots(mapInfo.selfSenseRadiusSq, Team.NEUTRAL);
                 MapLocation closestNeutralLoc = null;
@@ -331,18 +389,18 @@ public class RobotTasks {
                 // If we did none of the above stuff, try to make a robot
                 int taskStatus = archonBuildRobot(rc, mapInfo);
 
-                // If we couldn't make a new robot this round, check for adjacent friendly robots to repair
                 if (taskStatus != TASK_COMPLETE){
-                    RobotInfo[] adjacentFriends = rc.senseNearbyRobots(2, mapInfo.selfTeam);
-                    for (RobotInfo adjacentFriend : adjacentFriends){
-                        if (adjacentFriend.type != RobotType.ARCHON && adjacentFriend.health < adjacentFriend.type.maxHealth){
-                            rc.repair(adjacentFriend.location);
-                            return TASK_IN_PROGRESS;
+                    for (RobotInfo friend : mapInfo.friendlyRobots){
+                        if (mapInfo.selfLoc.isAdjacentTo(friend.location)){
+                            if (friend.type != RobotType.ARCHON && friend.health < friend.type.maxHealth) {
+                                rc.repair(friend.location);
+                                return TASK_IN_PROGRESS;
+                            }
                         }
                     }
                 }
 
-                return TASK_IN_PROGRESS;
+                return taskStatus;
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
