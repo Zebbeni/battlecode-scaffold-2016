@@ -14,7 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
-
+    public MapLocation assistLoc = null;
     public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
@@ -76,6 +76,11 @@ public class MapInfo {
         hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
         friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
 
+        // clear assistLoc if nearby
+        if (assistLoc != null && rc.canSense(assistLoc)){
+            assistLoc = null;
+        }
+
         // Update Zombie Spawn Date
         if (spawnSchedule.length > 0) {
             if (spawnSchedule[0] < roundNum) {
@@ -90,14 +95,13 @@ public class MapInfo {
 
         // Process Signals
         MapLocation thisLocation;
-        int minUrgentDist = 9999999;
         for (Signal signal : signals){
             thisLocation = signal.getLocation();
             int[] message = signal.getMessage();
             if (message != null) {
                 if (message[0] == SignalManager.SIG_ASSIST) {
                     // set urgent signal to this if it's the closest
-                    minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+                    setAssistLoc(thisLocation, signal);
                 } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
                     archonLocations.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
@@ -121,7 +125,7 @@ public class MapInfo {
                 }
             } else {
                 // set urgent signal to this if it's the closest
-                minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+                setAssistLoc(thisLocation, signal);
             }
         }
         try {
@@ -167,13 +171,11 @@ public class MapInfo {
         return nearestLocation;
     }
 
-    public int setUrgentSignal(int minDist, MapLocation location, Signal signal) {
-        int distToSignal = selfLoc.distanceSquaredTo(location);
-        if (distToSignal < minDist) {
+    public void setAssistLoc(MapLocation location, Signal signal) {
+        if (assistLoc == null || selfLoc.distanceSquaredTo(assistLoc) > selfLoc.distanceSquaredTo(location)) {
+            assistLoc = location;
             urgentSignal = signal;
-            return distToSignal;
         }
-        return minDist;
     }
 
     public void updateZombieDens(MapLocation sigLoc, int[] message) {

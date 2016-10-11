@@ -389,6 +389,7 @@ public class RobotTasks {
                 // If we did none of the above stuff, try to make a robot
                 int taskStatus = archonBuildRobot(rc, mapInfo);
 
+                // If we can't make a robot, try to repair an adjacent robot
                 if (taskStatus != TASK_COMPLETE){
                     for (RobotInfo friend : mapInfo.friendlyRobots){
                         if (mapInfo.selfLoc.isAdjacentTo(friend.location)){
@@ -398,6 +399,11 @@ public class RobotTasks {
                             }
                         }
                     }
+                }
+
+                // If we can't do any of the above things, move toward the action
+                if (mapInfo.assistLoc != null){
+                    return timidMoveToLocation(rc, mapInfo, mapInfo.assistLoc);
                 }
 
                 return taskStatus;

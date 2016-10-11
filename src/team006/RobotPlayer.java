@@ -30,7 +30,7 @@ public class RobotPlayer {
                     mapInfo.updateAll(rc);
 
                     if (mapInfo.urgentSignal != null){
-                        Assignment newAssignment = AssignmentManager.getSignalAssignment(rc, mapInfo, mapInfo.urgentSignal, assignment);
+                        Assignment newAssignment = AssignmentManager.getSignalAssignment(rc, mapInfo, assignment);
                         if (newAssignment != null) {
                             assignment = newAssignment;
                             mapInfo.clearHasBeenLocations();

@@ -38,6 +38,9 @@ public class AssignmentManager {
                 if (mapInfo.teamAttackSignalRound != -1 && mapInfo.roundNum > mapInfo.teamAttackSignalRound + 50) {
                     assignmentType = BOT_ATTACK_MOVE_TO_LOC;
                     targetLocation = mapInfo.lastKnownOpponentLocation;
+                } else if (mapInfo.assistLoc != null){
+                    targetLocation = mapInfo.assistLoc;
+                    assignmentType = BOT_ASSIST_LOC;
                 } else {
                     assignmentType = BOT_PATROL;
                 }
@@ -64,19 +67,19 @@ public class AssignmentManager {
         return new Assignment(targetInt, assignmentType, targetLocation);
     }
 
-    public static Assignment getSignalAssignment(RobotController rc, MapInfo mapInfo, Signal signal, Assignment assignment) {
+    public static Assignment getSignalAssignment(RobotController rc, MapInfo mapInfo, Assignment assignment) {
 
         if (mapInfo.selfType == RobotType.SCOUT) {
             return null;
         }
 
-        int[] message = signal.getMessage();
+        int[] message = mapInfo.urgentSignal.getMessage();
         int assignmentType = 0;
         int targetInt = 0;
-        MapLocation targetLocation = signal.getLocation();
+        MapLocation targetLocation = mapInfo.urgentSignal.getLocation();
 
         if (message != null) {
-            targetLocation = SignalManager.decodeLocation(signal.getLocation(), message[1]);
+            targetLocation = SignalManager.decodeLocation(mapInfo.urgentSignal.getLocation(), message[1]);
         }
 
         if (mapInfo.teamAttackSignalRound == -1 && message != null && message[0] == SignalManager.SIG_TEAM_ATTACK) {
@@ -93,6 +96,8 @@ public class AssignmentManager {
 
         if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC
                 && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
+
+            targetLocation = mapInfo.assistLoc;
 
             if (mapInfo.selfType.canAttack()) {
                 // if not already assisting, or if the new assist location is closer than the original one, set assignment to assisting location
