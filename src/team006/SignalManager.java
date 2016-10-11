@@ -19,6 +19,7 @@ public class SignalManager {
 
     public static void requestHelp(RobotController rc, MapInfo mapInfo, MapLocation location) {
         try {
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
             if (mapInfo.selfType == RobotType.ARCHON) {
                 rc.broadcastMessageSignal(SIG_ASSIST, encodeLocation(mapInfo.selfLoc, location), 1000);
             } else {
@@ -33,6 +34,7 @@ public class SignalManager {
     public static void signalArchonLoc(RobotController rc, MapInfo mapInfo) {
         try {
             rc.broadcastMessageSignal(SIG_UPDATE_ARCHON_LOC, encodeLocation(mapInfo.selfLoc, mapInfo.selfLoc), 1000);
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());
             gae.printStackTrace();
@@ -50,6 +52,7 @@ public class SignalManager {
             mapInfo.teamAttackSignalRound = mapInfo.roundNum;
             MapLocation avgArchonLoc = new MapLocation(avgX / (mapInfo.archonLocations.size() + 1), avgY / (mapInfo.archonLocations.size() + 1));
             rc.broadcastMessageSignal(SIG_TEAM_ATTACK, encodeLocation(mapInfo.selfLoc, avgArchonLoc), 10000);
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());
             gae.printStackTrace();
@@ -58,6 +61,9 @@ public class SignalManager {
 
     public static void scoutEnemies(RobotController rc, MapInfo mapInfo, RobotInfo[] enemies) {
         try {
+
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
+
             MapLocation zombieLoc = null;
             MapLocation opponentLoc = null;
             for (RobotInfo info : enemies) {
@@ -80,6 +86,7 @@ public class SignalManager {
             }
         } catch (GameActionException gae) {
             System.out.println(gae.getMessage());
+            rc.setIndicatorString(2, gae.getMessage());
             gae.printStackTrace();
         }
     }
@@ -87,6 +94,7 @@ public class SignalManager {
     public static void scoutResources(RobotController rc, MapInfo mapInfo, MapLocation[] partLocations, RobotInfo[] neutrals) {
         try {
             rc.broadcastMessageSignal(SIG_SCOUT_NEUTRALS,neutrals.length,1000);
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
             int parts = 0;
             for (MapLocation partLoc : partLocations) {
                 parts += rc.senseParts(partLoc);
@@ -104,9 +112,9 @@ public class SignalManager {
     public static int encodeLocation(MapLocation rcLoc, MapLocation targetLoc) {
         int diffX = targetLoc.x - rcLoc.x;
         int diffY = targetLoc.y - rcLoc.y;
-        int locSignal = Math.abs(diffX) + (100 * Math.abs(diffY));
-        locSignal += diffX < 0 ? 10 : 0;
-        locSignal += diffY < 0 ? 1000 : 0;
+        int locSignal = (100 * Math.abs(diffX)) + Math.abs(diffY);
+        locSignal += diffX < 0 ? 1000 : 0;
+        locSignal += diffY < 0 ? 10 : 0;
         return locSignal;
     }
 

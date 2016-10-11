@@ -14,6 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
+
     public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
@@ -23,6 +24,8 @@ public class MapInfo {
     public Team opponentTeam = null;
     public int selfId;
     public double selfHealth;
+    public double selfMaxHealth;
+    public boolean selfBeingHealed = false;
     public RobotInfo[] hostileRobots;
     public RobotInfo[] friendlyRobots;
     public int selfSenseRadiusSq = 0;
@@ -42,11 +45,7 @@ public class MapInfo {
     public int vipersCreated = 0;               // number of vipers this unit has created
     public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
 
-    public int scoutDirection = 3; // NORTH, EAST, SOUTH, WEST
-    public int scoutDistTraveled = 0; // number of times traveled in this direction before turning
-    public int scoutDistToTravel = 1; // number of times to travel in this direction before turning
-    public boolean scoutTurnedOnce = true; // keeps track of turns. On second turn, set back to false, increment scoutDistToTravel and scoutDirection % 4
-    public int scoutRoundsTraveled = 0; // keep track of turns searching for next spot. If too long, just get the next assignment
+    public int scoutRoundsTraveled = 0;
 
     public Random rand;
 
@@ -55,6 +54,7 @@ public class MapInfo {
         selfType = rc.getType();
         selfId = rc.getID();
         selfTeam = rc.getTeam();
+        selfMaxHealth = selfType.maxHealth;
         opponentTeam = selfTeam.equals(Team.A) ? Team.B : Team.A;
         selfCreatedRound = rc.getRoundNum();
         selfAttackPower = selfType.attackPower;
@@ -126,13 +126,21 @@ public class MapInfo {
                 minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
             }
         }
-
-        for (MapLocation denLoc : denLocations.keySet()) {
-            if (denLocations.get(denLoc)) {
-                if (rc.canSense(denLoc)) {
-                    updateZombieDens(denLoc, false);
+        try {
+            for (MapLocation denLoc : denLocations.keySet()) {
+                if (denLocations.get(denLoc) == true) {
+                    if (rc.canSense(denLoc)) {
+                        RobotInfo denBot = rc.senseRobotAtLocation(denLoc);
+                        if (denBot == null || denBot.type != RobotType.ZOMBIEDEN) {
+                            updateZombieDens(denLoc, false);
+                        }
+                    }
                 }
             }
+        } catch (GameActionException gae){
+            System.out.println(gae.getMessage());
+            rc.setIndicatorString(2,gae.getMessage());
+            gae.printStackTrace();
         }
 
         if (selfType == RobotType.ARCHON) {
@@ -166,9 +174,8 @@ public class MapInfo {
         if (distToSignal < minDist) {
             urgentSignal = signal;
             return distToSignal;
-        } else {
-            return minDist;
         }
+        return minDist;
     }
 
     public void updateZombieDens(MapLocation sigLoc, int[] message) {
@@ -195,19 +202,12 @@ public class MapInfo {
         partLocations.put(partLoc, message[1]);
     }
 
-    // updates the map if anything special needs to happen on task complete
-    public void handleTaskComplete(Assignment assignment) {
-        if (assignment.assignmentType == AssignmentManager.BOT_KILL_DEN) {
-            denLocations.put(assignment.targetLocation, false);
-        }
-    }
-
     // return the actual shortest MOVE distance between two locations
-    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
-        int xDist = Math.abs(toLoc.x - fromLoc.x);
-        int yDist = Math.abs(toLoc.y - fromLoc.y);
-        return Math.max(xDist, yDist);
-    }
+//    public static int moveDist(MapLocation fromLoc, MapLocation toLoc){
+//        int xDist = Math.abs(toLoc.x - fromLoc.x);
+//        int yDist = Math.abs(toLoc.y - fromLoc.y);
+//        return Math.max(xDist, yDist);
+//    }
 
     public void clearHasBeenLocations() {
         hasBeenLocations = new HashMap<>();
@@ -227,7 +227,7 @@ public class MapInfo {
                 return false; // don't make scouts if not the lowest id archon
             }
         }
-        return roundNum > 100 && (double)scoutsCreated / (double)roundNum < 0.002;
+        return roundNum > 25 && (double)scoutsCreated / (double)roundNum < 0.002;
     }
 
     public boolean isTimeForVipers() {
@@ -243,21 +243,5 @@ public class MapInfo {
             return true;
         }
         return false;
-    }
-
-    public boolean isOverPowered() {
-        double enemyPower = 0;
-        double friendlyPower = selfAttackPower * selfHealth;
-        for (RobotInfo enemy : hostileRobots) {
-            if (enemy.type.canAttack()) {
-                enemyPower += enemy.attackPower * enemy.health;
-            }
-        }
-        for (RobotInfo friend : friendlyRobots) {
-            if (friend.type.canAttack()) {
-                friendlyPower += friend.attackPower * friend.health;
-            }
-        }
-        return enemyPower > friendlyPower;
     }
 }
