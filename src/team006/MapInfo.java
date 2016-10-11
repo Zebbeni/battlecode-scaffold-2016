@@ -37,13 +37,14 @@ public class MapInfo {
     public MapLocation selfLoc = null;
     public Signal urgentSignal = null;
     public int[] spawnSchedule = null;
-    public int timeTillSpawn = 999999;
     public int lastRoundZombieSeen = 0;
     public int lastRoundScoutMessageSeen = 0;
     public int selfCreatedRound;                // round # when unit was created
     public int scoutsCreated = 0;
     public int vipersCreated = 0;               // number of vipers this unit has created
     public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
+
+    public MapLocation closestAssistLoc = null;
 
     public int scoutRoundsTraveled = 0;
 
@@ -85,9 +86,6 @@ public class MapInfo {
                     }
                 }
             }
-            timeTillSpawn = spawnSchedule[0] - roundNum;
-        } else {
-            timeTillSpawn = 999999;
         }
 
         // Process Signals
