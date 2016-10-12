@@ -13,14 +13,4 @@ public class Decision {
     public static boolean doRunAway(RobotController rc, MapInfo mapInfo) {
         return ( mapInfo.hostileRobots.length > 0);
     }
-
-    // return index of robot type to build from Constants.ROBOT_TYPES
-    public static int botToBuild(RobotController rc, MapInfo mapInfo) {
-        if (mapInfo.roundNum == 0) {
-            return 0;
-        } else if (mapInfo.timeTillSpawn < 50) {
-            return 2; // build guards if zombies to spawn soon
-        }
-        return 1;
-    }
 }

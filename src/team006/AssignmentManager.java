@@ -30,7 +30,13 @@ public class AssignmentManager {
 
             assignmentType = ARCHON_ACTION;
 
-        } else if (mapInfo.selfType == RobotType.SOLDIER || mapInfo.selfType == RobotType.GUARD) {
+        } else if ( rc.getType() == RobotType.SCOUT ) {
+
+            mapInfo.scoutRoundsTraveled = 0;
+            assignmentType = BOT_SCOUT;
+            targetLocation = mapInfo.selfLoc.add(Constants.DIRECTIONS[mapInfo.rand.nextInt(8)], 20);
+
+        } else {
 
             assignmentType = BOT_KILL_DEN;
             targetLocation = getNearestZombieDen(mapInfo);
@@ -45,24 +51,6 @@ public class AssignmentManager {
                     assignmentType = BOT_PATROL;
                 }
             }
-
-        } else if(rc.getType() == RobotType.VIPER){
-
-            assignmentType = BOT_ATTACK_MOVE_TO_LOC;
-            targetLocation = mapInfo.lastKnownOpponentLocation;
-
-        } else if ( rc.getType() == RobotType.SCOUT ){
-
-            mapInfo.scoutRoundsTraveled = 0;
-            assignmentType = BOT_SCOUT;
-            targetLocation = mapInfo.selfLoc.add(Constants.DIRECTIONS[mapInfo.rand.nextInt(8)], 20);
-
-        } else if ( rc.getType() == RobotType.TURRET ){
-
-            assignmentType = BOT_TURRET_DEFEND;
-
-        } else if ( rc.getType() == RobotType.TTM ) {
-
         }
         return new Assignment(targetInt, assignmentType, targetLocation);
     }
@@ -82,6 +70,7 @@ public class AssignmentManager {
             targetLocation = SignalManager.decodeLocation(mapInfo.urgentSignal.getLocation(), message[1]);
         }
 
+        // If team attack signal sent
         if (mapInfo.teamAttackSignalRound == -1 && message != null && message[0] == SignalManager.SIG_TEAM_ATTACK) {
             mapInfo.teamAttackSignalRound = mapInfo.roundNum;
             if (mapInfo.selfType.equals(RobotType.GUARD) || mapInfo.selfType.equals(RobotType.SOLDIER)) {
@@ -94,17 +83,28 @@ public class AssignmentManager {
             }
         }
 
-        if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC
-                && (message == null || message[0] == SignalManager.SIG_ASSIST)) {
-
-            targetLocation = mapInfo.assistLoc;
+        if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC) {
+            // if new zombie den signal
 
             if (mapInfo.selfType.canAttack()) {
-                // if not already assisting, or if the new assist location is closer than the original one, set assignment to assisting location
-                if (assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
-                    || mapInfo.selfLoc.distanceSquaredTo(targetLocation) < mapInfo.selfLoc.distanceSquaredTo(assignment.targetLocation)) {
+
+                if (message != null && message[0] == SignalManager.SIG_SCOUT_DENS) {
+                    assignmentType = BOT_KILL_DEN;
+                    targetLocation = SignalManager.decodeLocation(targetLocation, message[1]);
+                    return new Assignment(targetInt, assignmentType, targetLocation);
+                }
+
+                // if request for assistance
+                if (message == null || message[0] == SignalManager.SIG_ASSIST) {
+
+                    targetLocation = mapInfo.assistLoc;
+
+                    // if not already assisting, or if the new assist location is closer than the original one, set assignment to assisting location
+                    if (assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
+                            || mapInfo.selfLoc.distanceSquaredTo(targetLocation) < mapInfo.selfLoc.distanceSquaredTo(assignment.targetLocation)) {
                         assignmentType = BOT_ASSIST_LOC;
                         return new Assignment(targetInt, assignmentType, targetLocation);
+                    }
                 }
             }
         }

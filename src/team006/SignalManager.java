@@ -91,6 +91,21 @@ public class SignalManager {
         }
     }
 
+    public static void signalClosestZombieDen(RobotController rc, MapInfo mapInfo, MapLocation denLocation){
+        try {
+            mapInfo.selfLastSignaled = mapInfo.roundNum;
+
+            rc.broadcastMessageSignal(SIG_SCOUT_DENS, encodeLocation(mapInfo.selfLoc, denLocation), 1500);
+            rc.setIndicatorString(2, "Sent Zombie Den message");
+            return;
+
+        } catch (GameActionException gae) {
+            System.out.println(gae.getMessage());
+            rc.setIndicatorString(2, gae.getMessage());
+            gae.printStackTrace();
+        }
+    }
+
     public static void scoutResources(RobotController rc, MapInfo mapInfo, MapLocation[] partLocations, RobotInfo[] neutrals) {
         try {
             rc.broadcastMessageSignal(SIG_SCOUT_NEUTRALS,neutrals.length,1000);

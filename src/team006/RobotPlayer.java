@@ -52,9 +52,6 @@ public class RobotPlayer {
                     if (taskStatus != prevTaskStatus && (taskStatus == RobotTasks.TASK_RETREATING || taskStatus == RobotTasks.TASK_ATTACKING)){
                         mapInfo.clearHasBeenLocations();
                     }
-                    if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
-                        SignalManager.signalArchonLoc(rc, mapInfo);
-                    }
                 }
                 Clock.yield();
             } catch (Exception e) {

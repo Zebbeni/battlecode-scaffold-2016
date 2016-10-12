@@ -105,7 +105,7 @@ public class MapInfo {
                 } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
                     archonLocations.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
-                    updateZombieDens(thisLocation, message);
+                    updateZombieDenSignal(signal, thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_OPPONENT) {
                     updateLastKnownOpponentLocation(thisLocation, message);
@@ -178,9 +178,12 @@ public class MapInfo {
         }
     }
 
-    public void updateZombieDens(MapLocation sigLoc, int[] message) {
-        lastRoundZombieSeen = roundNum;
-        denLocations.put(SignalManager.decodeLocation(sigLoc, message[1]),true);
+    public void updateZombieDenSignal(Signal signal, MapLocation sigLoc, int[] message) {
+        MapLocation denLocation = SignalManager.decodeLocation(sigLoc, message[1]);
+        if (denLocations.containsKey(denLocation) == false || denLocations.get(denLocation)) {
+            urgentSignal = signal;
+            updateZombieDens(denLocation, true);
+        }
     }
 
     public void updateZombieDens(MapLocation denLoc, boolean isHere) {
