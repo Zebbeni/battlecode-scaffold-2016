@@ -30,7 +30,7 @@ public class RobotPlayer {
                     mapInfo.updateAll(rc);
 
                     if (mapInfo.urgentSignal != null){
-                        Assignment newAssignment = AssignmentManager.getSignalAssignment(rc, mapInfo, mapInfo.urgentSignal, assignment);
+                        Assignment newAssignment = AssignmentManager.getSignalAssignment(rc, mapInfo, assignment);
                         if (newAssignment != null) {
                             assignment = newAssignment;
                             mapInfo.clearHasBeenLocations();
@@ -51,9 +51,6 @@ public class RobotPlayer {
 
                     if (taskStatus != prevTaskStatus && (taskStatus == RobotTasks.TASK_RETREATING || taskStatus == RobotTasks.TASK_ATTACKING)){
                         mapInfo.clearHasBeenLocations();
-                    }
-                    if (mapInfo.selfType == RobotType.ARCHON && mapInfo.roundNum - mapInfo.selfLastSignaled > 20) {
-                        SignalManager.signalArchonLoc(rc, mapInfo);
                     }
                 }
                 Clock.yield();

@@ -14,7 +14,7 @@ public class MapInfo {
     public Map<MapLocation, Integer> hasBeenLocations = new HashMap<>();
     public Map<MapLocation, Integer> partLocations = new HashMap<>();
     public Map<MapLocation, Integer> neutralLocations = new HashMap<>();
-
+    public MapLocation assistLoc = null;
     public MapLocation lastKnownOpponentLocation = null;
     public int roundNum = 0;
     public Map<Integer, Integer> scoutSignals = new HashMap<>(); // <scoutId : roundLastSignaled>
@@ -37,13 +37,14 @@ public class MapInfo {
     public MapLocation selfLoc = null;
     public Signal urgentSignal = null;
     public int[] spawnSchedule = null;
-    public int timeTillSpawn = 999999;
     public int lastRoundZombieSeen = 0;
     public int lastRoundScoutMessageSeen = 0;
     public int selfCreatedRound;                // round # when unit was created
     public int scoutsCreated = 0;
     public int vipersCreated = 0;               // number of vipers this unit has created
     public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
+
+    public MapLocation closestAssistLoc = null;
 
     public int scoutRoundsTraveled = 0;
 
@@ -75,6 +76,11 @@ public class MapInfo {
         hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
         friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
 
+        // clear assistLoc if nearby
+        if (assistLoc != null && rc.canSense(assistLoc)){
+            assistLoc = null;
+        }
+
         // Update Zombie Spawn Date
         if (spawnSchedule.length > 0) {
             if (spawnSchedule[0] < roundNum) {
@@ -85,25 +91,21 @@ public class MapInfo {
                     }
                 }
             }
-            timeTillSpawn = spawnSchedule[0] - roundNum;
-        } else {
-            timeTillSpawn = 999999;
         }
 
         // Process Signals
         MapLocation thisLocation;
-        int minUrgentDist = 9999999;
         for (Signal signal : signals){
             thisLocation = signal.getLocation();
             int[] message = signal.getMessage();
             if (message != null) {
                 if (message[0] == SignalManager.SIG_ASSIST) {
                     // set urgent signal to this if it's the closest
-                    minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+                    setAssistLoc(thisLocation, signal);
                 } else if (message[0] == SignalManager.SIG_UPDATE_ARCHON_LOC) {
                     archonLocations.put(signal.getID(),signal.getLocation());
                 } else if (message[0] == SignalManager.SIG_SCOUT_DENS) {
-                    updateZombieDens(thisLocation, message);
+                    updateZombieDenSignal(signal, thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_OPPONENT) {
                     updateLastKnownOpponentLocation(thisLocation, message);
@@ -123,7 +125,7 @@ public class MapInfo {
                 }
             } else {
                 // set urgent signal to this if it's the closest
-                minUrgentDist = setUrgentSignal(minUrgentDist, thisLocation, signal);
+                setAssistLoc(thisLocation, signal);
             }
         }
         try {
@@ -169,18 +171,19 @@ public class MapInfo {
         return nearestLocation;
     }
 
-    public int setUrgentSignal(int minDist, MapLocation location, Signal signal) {
-        int distToSignal = selfLoc.distanceSquaredTo(location);
-        if (distToSignal < minDist) {
+    public void setAssistLoc(MapLocation location, Signal signal) {
+        if (assistLoc == null || selfLoc.distanceSquaredTo(assistLoc) > selfLoc.distanceSquaredTo(location)) {
+            assistLoc = location;
             urgentSignal = signal;
-            return distToSignal;
         }
-        return minDist;
     }
 
-    public void updateZombieDens(MapLocation sigLoc, int[] message) {
-        lastRoundZombieSeen = roundNum;
-        denLocations.put(SignalManager.decodeLocation(sigLoc, message[1]),true);
+    public void updateZombieDenSignal(Signal signal, MapLocation sigLoc, int[] message) {
+        MapLocation denLocation = SignalManager.decodeLocation(sigLoc, message[1]);
+        if (denLocations.containsKey(denLocation) == false || denLocations.get(denLocation)) {
+            urgentSignal = signal;
+            updateZombieDens(denLocation, true);
+        }
     }
 
     public void updateZombieDens(MapLocation denLoc, boolean isHere) {
