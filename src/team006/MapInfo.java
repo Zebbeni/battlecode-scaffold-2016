@@ -28,6 +28,7 @@ public class MapInfo {
     public boolean selfBeingHealed = false;
     public RobotInfo[] hostileRobots;
     public RobotInfo[] friendlyRobots;
+    public RobotInfo[] opponentRobots;
     public int selfSenseRadiusSq = 0;
     public int selfAttackRadiusSq = 0;
     public double selfAttackPower = 0;
@@ -43,6 +44,8 @@ public class MapInfo {
     public int scoutsCreated = 0;
     public int vipersCreated = 0;               // number of vipers this unit has created
     public int teamAttackSignalRound = -1;      // round when team attack signal was given or received
+
+    public int unitsCreated = 0;
 
     public MapLocation closestAssistLoc = null;
 
@@ -75,6 +78,7 @@ public class MapInfo {
         urgentSignal = null;
         hostileRobots = rc.senseHostileRobots(selfLoc,selfSenseRadiusSq);
         friendlyRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, selfTeam);
+        opponentRobots = rc.senseNearbyRobots(selfLoc, selfSenseRadiusSq, opponentTeam);
 
         // clear assistLoc if nearby
         if (assistLoc != null && rc.canSense(assistLoc)){
@@ -108,7 +112,7 @@ public class MapInfo {
                     updateZombieDenSignal(signal, thisLocation, message);
                     lastRoundScoutMessageSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_OPPONENT) {
-                    updateLastKnownOpponentLocation(thisLocation, message);
+                    updateLastKnownOpponentLocation(signal, thisLocation, message);
                 } else if (message[0] == SignalManager.SIG_SCOUT_ZOMBIE) {
                     lastRoundZombieSeen = roundNum;
                 } else if (message[0] == SignalManager.SIG_SCOUT_NEUTRALS) {
@@ -129,6 +133,7 @@ public class MapInfo {
             }
         }
         try {
+            // set each zombie den location to false if it's been destroyed
             for (MapLocation denLoc : denLocations.keySet()) {
                 if (denLocations.get(denLoc) == true) {
                     if (rc.canSense(denLoc)) {
@@ -139,6 +144,14 @@ public class MapInfo {
                     }
                 }
             }
+
+            // clear last known opponent location if no opponents here
+            if (lastKnownOpponentLocation != null && rc.canSense(lastKnownOpponentLocation)){
+                if (hostileRobots.length == 0){
+                    lastKnownOpponentLocation = null;
+                }
+            }
+
         } catch (GameActionException gae){
             System.out.println(gae.getMessage());
             rc.setIndicatorString(2,gae.getMessage());
@@ -193,8 +206,12 @@ public class MapInfo {
         }
     }
 
-    public void updateLastKnownOpponentLocation(MapLocation sigLoc, int[] message){
+    public void updateLastKnownOpponentLocation(Signal signal, MapLocation sigLoc, int[] message){
         lastKnownOpponentLocation = SignalManager.decodeLocation(sigLoc, message[1]);
+        // treat this as an urgent signal if viper
+        if (selfType == RobotType.VIPER){
+            urgentSignal = signal;
+        }
     }
 
     public void updateNeutrals(MapLocation neutralLoc, int[] message){

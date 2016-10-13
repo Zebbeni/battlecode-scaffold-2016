@@ -19,6 +19,7 @@ public class AssignmentManager {
     public static int BOT_KILL_DEN = 11;
     public static int BOT_ASSIST_LOC = 12;
     public static int BOT_ASSEMBLE_TO_LOC = 13;
+    public static int BOT_INFECT = 14;
 
     public static Assignment getAssignment(RobotController rc, Random rand, MapInfo mapInfo, Assignment assignment) {
 
@@ -86,19 +87,27 @@ public class AssignmentManager {
         if (assignment.assignmentType != AssignmentManager.BOT_ASSEMBLE_TO_LOC) {
             // if new zombie den signal
 
-            if (mapInfo.selfType.canAttack()) {
+            if (mapInfo.selfType.canAttack() || mapInfo.selfType == RobotType.TTM) {
 
                 if (message != null && message[0] == SignalManager.SIG_SCOUT_DENS) {
-                    assignmentType = BOT_KILL_DEN;
-                    targetLocation = SignalManager.decodeLocation(targetLocation, message[1]);
-                    return new Assignment(targetInt, assignmentType, targetLocation);
+                    if (assignment.assignmentType != BOT_INFECT) {
+                        assignmentType = BOT_KILL_DEN;
+                        targetLocation = SignalManager.decodeLocation(targetLocation, message[1]);
+                        return new Assignment(targetInt, assignmentType, targetLocation);
+                    }
+                }
+
+                if (mapInfo.selfType == RobotType.VIPER){
+                    if (message != null && message[0] == SignalManager.SIG_SCOUT_OPPONENT){
+                        assignmentType = BOT_INFECT;
+                        targetLocation = mapInfo.lastKnownOpponentLocation;
+                        return new Assignment(targetInt, assignmentType, targetLocation);
+                    }
                 }
 
                 // if request for assistance
                 if (message == null || message[0] == SignalManager.SIG_ASSIST) {
-
                     targetLocation = mapInfo.assistLoc;
-
                     // if not already assisting, or if the new assist location is closer than the original one, set assignment to assisting location
                     if (assignment.assignmentType != AssignmentManager.BOT_ASSIST_LOC
                             || mapInfo.selfLoc.distanceSquaredTo(targetLocation) < mapInfo.selfLoc.distanceSquaredTo(assignment.targetLocation)) {

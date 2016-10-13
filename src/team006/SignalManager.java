@@ -81,7 +81,7 @@ public class SignalManager {
                 rc.broadcastMessageSignal(SIG_SCOUT_ZOMBIE, encodeLocation(mapInfo.selfLoc, zombieLoc), 1000);
                 rc.setIndicatorString(2, "Sent Zombie Location message");
             } else if (opponentLoc != null){
-                rc.broadcastMessageSignal(SIG_SCOUT_OPPONENT, encodeLocation(mapInfo.selfLoc, opponentLoc), 1000);
+                rc.broadcastMessageSignal(SIG_SCOUT_OPPONENT, encodeLocation(mapInfo.selfLoc, opponentLoc), 2000);
                 rc.setIndicatorString(2, "Sent Opponent Location message");
             }
         } catch (GameActionException gae) {

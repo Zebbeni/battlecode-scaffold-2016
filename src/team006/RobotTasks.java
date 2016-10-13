@@ -54,6 +54,9 @@ public class RobotTasks {
             } else if (assignment.assignmentType == AssignmentManager.BOT_ASSEMBLE_TO_LOC){
                 rc.setIndicatorString(0, "assembling to location: " + targetLoc);
                 return assembleToLocation(rc, mapInfo, assignment.targetLocation);
+            } else if (assignment.assignmentType == AssignmentManager.BOT_INFECT){
+                rc.setIndicatorString(0, "infecting the opponent:" + targetLoc);
+                return viperInfect(rc, mapInfo, assignment.targetLocation);
             }
         } catch (Exception e) {
             System.out.println(e.getMessage());
@@ -207,7 +210,8 @@ public class RobotTasks {
             MapLocation moveTarget = targetLocation;
 
             if (moveTarget == null) {
-                moveTarget = new MapLocation(mapInfo.selfLoc.x + mapInfo.rand.nextInt(13) - 6, mapInfo.selfLoc.y + mapInfo.rand.nextInt(13) - 6);
+                int dist = mapInfo.selfType == RobotType.VIPER ? 51 : 13;
+                moveTarget = new MapLocation(mapInfo.selfLoc.x + mapInfo.rand.nextInt(dist) - (dist/2), mapInfo.selfLoc.y + mapInfo.rand.nextInt(dist) - (dist/2));
             }
 
             if (mapInfo.selfType == RobotType.TTM) {
@@ -453,12 +457,12 @@ public class RobotTasks {
 
             if (mapInfo.needAnotherScout()) {
                 typeToBuild = Constants.ROBOT_TYPES[0]; // build SCOUT every so many rounds
-            } else if (mapInfo.isTimeForVipers()) {
+            } else if (mapInfo.isTimeForVipers() || (mapInfo.unitsCreated + 1) % 17 == 0) {
                 typeToBuild = Constants.ROBOT_TYPES[3]; // Build VIPER
             } else if (mapInfo.rand.nextInt(100) < 30) {
                 typeToBuild = Constants.ROBOT_TYPES[2]; // GUARDS are 30% of regular troops
             } else if (mapInfo.rand.nextInt(25) == 1) {
-                typeToBuild = Constants.ROBOT_TYPES[4]; // build TURRET occasionally
+                typeToBuild = Constants.ROBOT_TYPES[5]; // build TTM occasionally
             }
             // Check for sufficient parts
             if (rc.hasBuildRequirements(typeToBuild)) {
@@ -472,6 +476,7 @@ public class RobotTasks {
                         } else if (typeToBuild == Constants.ROBOT_TYPES[0]) {
                             mapInfo.scoutsCreated += 1;
                         }
+                        mapInfo.unitsCreated += 1;
                         rc.setIndicatorString(1, "scouts: " + mapInfo.scoutsCreated + " vipers: " + mapInfo.vipersCreated);
                         rc.setIndicatorString(2, "Build task Complete!");
                         return TASK_COMPLETE;
@@ -486,6 +491,17 @@ public class RobotTasks {
             rc.setIndicatorString(2, e.getMessage());
             e.printStackTrace();
         }
+        return TASK_ABANDONED;
+    }
+
+    public static int viperInfect(RobotController rc, MapInfo mapInfo, MapLocation targetLocation){
+        try {
+            return attackMoveToLocation(rc, mapInfo, targetLocation);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            e.printStackTrace();
+        }
+        rc.setIndicatorString(2, "Uh oh, abandoned viper infect");
         return TASK_ABANDONED;
     }
 
@@ -549,36 +565,43 @@ public class RobotTasks {
             // prioritize enemies in range before others
             RobotInfo[] enemies = enemiesInRange.length > 0 ? enemiesInRange : mapInfo.hostileRobots;
 
-            for (RobotInfo info : enemies) {
-                // Find optimal attack location
-                int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
-                if (thisDist > minRange) {
-                    if (info.type.canAttack() == false) {
-                        // only consider non-threat targets if they are near the actual target location
-                        // ie. don't stop to shoot dens if on the way to help another fighter
-                        if (info.type == RobotType.ZOMBIEDEN) {
-                            mapInfo.updateZombieDens(info.location, true);
-                        }
+            if (mapInfo.selfType == RobotType.VIPER && mapInfo.opponentRobots.length != 0) {
 
-                        thisEffort = thisDist * info.health;
+                attackLoc = viperChooseAttackLoc(rc, mapInfo);
 
-                        if (thisEffort < minNonThreatEffort) {
-                            minNonThreatEffort = thisEffort;
-                            nonThreatLoc = info.location;
-                        }
-                    } else {
+            } else {
 
-                        thisEffort = thisDist * info.health / info.attackPower;
+                for (RobotInfo info : enemies) {
+                    // Find optimal attack location
+                    int thisDist = mapInfo.selfLoc.distanceSquaredTo(info.location);
+                    if (thisDist > minRange) {
+                        if (info.type.canAttack() == false) {
+                            // only consider non-threat targets if they are near the actual target location
+                            // ie. don't stop to shoot dens if on the way to help another fighter
+                            if (info.type == RobotType.ZOMBIEDEN) {
+                                mapInfo.updateZombieDens(info.location, true);
+                            }
 
-                        if (thisEffort < minThreatEffort) {
-                            minThreatEffort = thisEffort;
-                            threatLoc = info.location;
+                            thisEffort = thisDist * info.health;
+
+                            if (thisEffort < minNonThreatEffort) {
+                                minNonThreatEffort = thisEffort;
+                                nonThreatLoc = info.location;
+                            }
+                        } else {
+
+                            thisEffort = thisDist * info.health / info.attackPower;
+
+                            if (thisEffort < minThreatEffort) {
+                                minThreatEffort = thisEffort;
+                                threatLoc = info.location;
+                            }
                         }
                     }
                 }
-            }
 
-            attackLoc = threatLoc != null ? threatLoc : nonThreatLoc;
+                attackLoc = threatLoc != null ? threatLoc : nonThreatLoc;
+            }
 
             if (attackLoc != null) {
 
@@ -613,6 +636,17 @@ public class RobotTasks {
                         }
                     }
                 }
+            } else if (mapInfo.selfType == RobotType.VIPER) {
+                // if this is viper and there are both friends and opponents here, try moving away before shooting
+                if (mapInfo.friendlyRobots.length > 0 && mapInfo.opponentRobots.length > 0) {
+                    for (RobotInfo friend : mapInfo.friendlyRobots) {
+                        if (friend.type != RobotType.VIPER) {
+                            if (viperShiftAttackLocation(rc, mapInfo) == TASK_IN_PROGRESS) {
+                                return TASK_IN_PROGRESS;
+                            }
+                        }
+                    }
+                }
             }
             return TASK_IN_PROGRESS;
 
@@ -620,6 +654,76 @@ public class RobotTasks {
             System.out.println(e.getMessage());
             rc.setIndicatorString(2, e.getMessage());
             e.printStackTrace();
+        }
+        return TASK_ABANDONED;
+    }
+
+    //
+    public static MapLocation viperChooseAttackLoc(RobotController rc, MapInfo mapInfo) {
+        try {
+            MapLocation attackLoc = null;
+            int maxScore = 0;
+            for (RobotInfo opponent : mapInfo.opponentRobots){
+                RobotInfo[] nearbyOpponents = rc.senseNearbyRobots(opponent.location, 5, mapInfo.opponentTeam);
+                int score = nearbyOpponents.length;
+                RobotInfo[] nearbyFriends = rc.senseNearbyRobots(opponent.location, 5, mapInfo.selfTeam);
+                score += -2 * (nearbyFriends.length);
+                if (score > maxScore) {
+                    maxScore = score;
+                    attackLoc = opponent.location;
+                }
+            }
+            return attackLoc;
+        } catch (Exception gae) {
+            System.out.println(gae.getMessage());
+            rc.setIndicatorString(2, gae.getMessage());
+            gae.printStackTrace();
+        }
+        return null;
+    }
+
+    // enter this function when a viper has both enemies and friends in sight
+    // returns task_in_progress if successfully moved in a direction, otherwise TASK_ABANDONED
+    public static int viperShiftAttackLocation(RobotController rc, MapInfo mapInfo){
+        try {
+            int maxSumFriendDist = 0;
+            Direction dirToMove = null;
+            for (Direction dir : Constants.DIRECTIONS) {
+
+                if (rc.canMove(dir)) {
+
+                    MapLocation moveLoc = mapInfo.selfLoc.add(dir);
+                    boolean opponentStillVisible = false;
+
+                    // only consider moving to squares where viper will still see opponent
+                    for (RobotInfo opponent : mapInfo.opponentRobots) {
+                        if (opponent.location.distanceSquaredTo(moveLoc) < mapInfo.selfSenseRadiusSq) {
+                            opponentStillVisible = true;
+                        }
+                    }
+
+                    if (opponentStillVisible) {
+                        int sumFriendDist = 0;
+                        for (RobotInfo friend : mapInfo.friendlyRobots) {
+                            sumFriendDist += moveLoc.distanceSquaredTo(friend.location);
+                        }
+                        if (sumFriendDist > maxSumFriendDist) {
+                            maxSumFriendDist = sumFriendDist;
+                            dirToMove = dir;
+                        }
+                    }
+                }
+            }
+
+            if (dirToMove != null) {
+                rc.move(dirToMove);
+                return TASK_IN_PROGRESS;
+            }
+
+        } catch (Exception gae) {
+            System.out.println(gae.getMessage());
+            rc.setIndicatorString(2, gae.getMessage());
+            gae.printStackTrace();
         }
         return TASK_ABANDONED;
     }
